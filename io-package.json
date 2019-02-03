@@ -1,0 +1,76 @@
+{
+	"common": {
+		"name": "multicast",
+		"version": "0.0.1",
+		"news": {
+			"0.0.1": {
+				"en": "initial release",
+				"de": "Erstveröffentlichung",
+				"ru": "Начальная версия",
+				"pt": "lançamento inicial",
+				"nl": "Eerste uitgave",
+				"fr": "Première version",
+				"it": "Versione iniziale",
+				"es": "Versión inicial",
+				"pl": "Pierwsze wydanie",
+				"zh-cn": "首次出版"
+			}
+		},
+		"title": "Multicast",
+		"titleLang": {
+			"en": "Multicast",
+			"de": "Multicast",
+			"ru": "Multicast",
+			"pt": "Multicast",
+			"nl": "multicast",
+			"fr": "Multidiffusion",
+			"it": "Multicast",
+			"es": "Multidifusión",
+			"pl": "Multicast",
+			"zh-cn": "组播"
+		},
+		"desc": {
+			"en": "Receive and sent multicast information",
+			"de": "Empfangen und Senden von Multicast-Informationen",
+			"ru": "Получать и отправлять многоадресную информацию",
+			"pt": "Receber e enviar informações multicast",
+			"nl": "Multicast-informatie ontvangen en verzonden",
+			"fr": "Recevoir et envoyer des informations de multidiffusion",
+			"it": "Ricevi e invia informazioni multicast",
+			"es": "Recibir y enviar información multicast.",
+			"pl": "Odbieranie i wysyłanie informacji o multiemisji",
+			"zh-cn": "接收和发送多播信息"
+		},
+		"authors": [
+			"Dutchman & Andiling <rdrozda86@gmail.com>"
+		],
+		"keywords": [
+			"ioBroker",
+			"template",
+			"Smart Home",
+			"home automation"
+		],
+		"platform": "Javascript/Node.js",
+		"main": "main.js",
+		"icon": "multicast.png",
+		"enabled": true,
+		"extIcon": "https://raw.githubusercontent.com/iobroker-community-adapters/ioBroker.multicast/master/admin/multicast.png",
+		"readme": "https://github.com/iobroker-community-adapters/ioBroker.multicast/blob/master/README.md",
+		"loglevel": "info",
+		"mode": "daemon",
+		"type": "network",
+		"compact": true,
+		"materialize": true,
+		"dependencies": [
+			{
+				"admin": ">=3.0.0"
+			}
+		]
+	},
+	"native": {
+		"option1": true,
+		"option2": "42"
+	},
+	"objects": [],
+	"instanceObjects": []
+}
