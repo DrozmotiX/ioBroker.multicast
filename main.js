@@ -44,11 +44,17 @@ class Multicast extends utils.Adapter {
 		receive_port = this.config.receive_port;
 		send_ip = this.config.send_1 + "." + this.config.send_2 + "." + this.config.send_3 + "." + this.config.send_4;
 		send_port = this.config.send_port;
-		this.log.info("IP-Adress Receiver = : " + receive_ip);
-		this.log.info("Port des Receivers = : " + receive_port);
-		this.log.info("IP-Adress Sender = : " + send_ip);
-		this.log.info("Port des Senders = : " + send_port);
+
+		// Write logging of configuration values in silly mode
+		this.log.silly("IP-Adress Receiver = : " + receive_ip);
+		this.log.silly("Port des Receivers = : " + receive_port);
+		this.log.silly("IP-Adress Sender = : " + send_ip);
+		this.log.silly("Port des Senders = : " + send_port);
+
+		// Create state to send global multicast message
 		this.doStateCreate("global_message", "send a free multicast message", "string", "media.tts","", true);
+
+		// Open socket to receive multicast messages
 		multicast = dgram.createSocket("udp4");
 		multicast.on("listening", () => {
 			const receiveaddress = multicast.address();
@@ -56,15 +62,22 @@ class Multicast extends utils.Adapter {
 			this.log.info("Multicast Client listening on " + receiveaddress.address + ":" + receiveaddress.port + "and send to " + send_ip + ":" + send_port);
 		});
 
+
+		// Ack on message in multicast listener
 		multicast.on("message", (message, remote) => {
+			// Write logging received information source
 			this.log.debug("From: " + remote.address + ":" + remote.port);
-			this.log.debug("Paketlaenge: " + message.length);
-			this.log.debug("Inhalt der Message encrypted: " + message);
-			// Hier muss die message decrypted werden denn erst dann ist JSON.parse anwendbar!!
-			this.log.debug("Inhalt der Message decrypted: " + message);
+			this.log.debug("Packagelength: " + message.length);
+			this.log.debug("Content of message encrypted: " + message);
+			
+			// To-Do : handle decryption of message
+			this.log.debug("Content of message : " + message);
 			try {
+				//@ts-ignore message is available from function
 				const received_data = JSON.parse(message);	// Versuch den String in ein JSON zu verwandeln
-				const statename = received_data.object["device_type"] + "_" + received_data.object["mac_adress"];
+				const statename = received_data.i["device_type"] + "_" + received_data.i["mac_adress"];
+				
+				let DeviceArray = []
 				this.log.info("Data from device " + statename + " correctly received");
 				this.setObjectNotExists(statename,{
 					type: "device",
@@ -73,38 +86,110 @@ class Multicast extends utils.Adapter {
 					},
 					native: {},
 				});
-				// Hier holen wir uns alle releventen Informationen die in das Device-Objekt müssen und wenden extrendObject an
-				const objects = Object.keys(received_data.object);
+
+
+
+				// Read all device related information and write into object with extend objection function
+				const objects = Object.keys(received_data.i);
 				let array = [];
 				for (const i in objects){
-					array.push('"' + objects[i] + '" : "' + received_data.object[objects[i]] + '"');
+					// Prepare values to be extended in instance object
+					array.push('"' + objects[i] + '" : "' + received_data.i[objects[i]] + '"');
+
+					// Create state in info channel
+					this.createChannel(statename, "info");
+
+					const writable = false;
+
+					this.log.info('"' + objects[i] + '" : "' + received_data.i[objects[i]] + '"');
+
+					// tdoStateCreate(device, name, type,role, unit, write)
+					this.doStateCreate(statename + ".Info." + objects[i], objects[i] , "number", "indicator.info","", writable);
+					this.setState(statename + ".Info." + objects[i], { val: received_data.i[objects[i]],ack: true});
+
 				}				
-				array = JSON.parse("{" + array + "}"); //Fertigstellen des JSON Objekts
+
+				// update name
+				array.push('"' + "name" + '" : "' + received_data.i.hostname + '"');
+
+				// Write attributes to instance object
+				array = JSON.parse("{" + array + "}"); //Finalize creation of object
 				const objekt = {};
 				objekt.common = array;
 				this.extendObject(statename, objekt, (err) => {
 					if (err !== null){this.log.error("Changing alias name failed with : " + err);}
-				});		
+				});	
+		
+				// Read all configuration related information and write into object with extend objection function
+				const config = Object.keys(received_data.c);
+				for (const i in config){
 
-				// Hier werden die states zum Objekt kreiert 
-				const stateNames = Object.keys(received_data.states);
+					// Create state in info channel
+					this.createChannel(statename, "config");
+
+					const writable = true;
+
+					// Define if state must be part of channel and create state name
+					let stateCreateName = statename + ".Config." + config[i];
+					this.log.info("stateCreateName before if : " + stateCreateName);
+					if (received_data.c[config[i]].c === undefined){
+						// do nothing
+					}
+					else { 
+						stateCreateName = statename + ".Config." + received_data.c[config[i]].c + "." + config[i];
+					}
+					this.log.info("stateCreateName after if : " + stateCreateName);
+
+
+					this.log.debug('"' + config[i] + '" : "' + received_data.c[config[i]] + '"');
+
+					// tdoStateCreate(device, name, type,role, unit, write)
+					this.doStateCreate(stateCreateName, config[i] , received_data.c[config[i]].t, received_data.c[config[i]].r,received_data.c[config[i]].u, writable);
+					this.setState(stateCreateName, { val: received_data.c[config[i]].v,ack: true});
+
+				}						
+
+				// Create states for all values received in JSON
+				const stateNames = Object.keys(received_data.s);
 				for (const i in stateNames){
 					let writable = false;
-					if (received_data.states[stateNames[i]].write === undefined){
+					if (received_data.s[stateNames[i]].w === undefined){
 						writable =	false;
 					}
-					else if (received_data.states[stateNames[i]].write === true || received_data.states[stateNames[i]].write === "true") { 
+					else if (received_data.s[stateNames[i]].w === true || received_data.s[stateNames[i]].w === "true") { 
 						writable =	true;
 					}
-					this.doStateCreate(statename + "." + stateNames[i], stateNames[i], "number", received_data.states[stateNames[i]].role,received_data.states[stateNames[i]].unit, writable);
-					this.setState(statename + "." + stateNames[i], { val: received_data.states[stateNames[i]].value,ack: true, expire: (received_data["object"].interval *3) + 2 });
+
+					// Define if state must be part of channel and create state name
+					let stateCreateName = statename + "." + stateNames[i];
+					this.log.info("stateCreateName before if : " + stateCreateName);
+					if (received_data.s[stateNames[i]].c === undefined){
+						// do nothing
+					}
+					else { 
+						stateCreateName = statename + "." + received_data.s[stateNames[i]].c + "." + stateNames[i]
+					}
+					this.log.info("stateCreateName after if : " + stateCreateName);
+
+					// create state
+					this.doStateCreate(stateCreateName, stateNames[i], received_data.s[stateNames[i]].t, received_data.s[stateNames[i]].r,received_data.s[stateNames[i]].u, writable);
+					
+					// write value into state
+					this.setState(stateCreateName, { val: received_data.s[stateNames[i]].v,ack: true, expire: (received_data["i"].interval *3) + 2 });
+					
+					// if state has writable flag yes, subscribe on changes
 					if (writable === true) {
-						this.subscribeStates(statename + "." + stateNames[i]);
-						this.log.debug("State subscribed!: "+ statename + "." + stateNames[i]);
+						this.subscribeStates(stateCreateName);
+						this.log.debug("State subscribed!: "+ stateCreateName);
 					}
 				}
+
+
+
 			} 
 			catch (error) {
+
+				//To-Do : ensure propper error logging for wrong firmware versions
 				this.log.error(error);
 				this.log.error("unknown message received - please read the documentation !!!! - this was received: " + message);
 			}
@@ -204,9 +289,11 @@ class Multicast extends utils.Adapter {
 			const objekt = await this.getObjectAsync(deviceId[2]);
 			this.log.debug("AsyncObject received while StateChange: " + JSON.stringify(objekt));
 			const sendMessage = {
+				//@ts-ignore objekt is not empty
 				objekt : objekt.common,
 				states : {
 					[stateNameToSend] : {
+						//@ts-ignore state is not empty
 						value : state.val
 					}
 				}
@@ -215,6 +302,13 @@ class Multicast extends utils.Adapter {
 			this.transmit(JSON.stringify(sendMessage));
 		}
 	}
+
+	// // Function to handle state creation
+	// doChanngelCreate(){
+
+	// 	this.createChannel(device, name);
+
+	// }
 
 	// Function to handle state creation
 	doStateCreate(device, name, type,role, unit, write){	
