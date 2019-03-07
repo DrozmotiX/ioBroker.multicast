@@ -75,7 +75,7 @@ class Multicast extends utils.Adapter {
 			try {
 				//@ts-ignore message is available from function
 				const received_data = JSON.parse(message);	// Versuch den String in ein JSON zu verwandeln
-				const statename = received_data.i["device_type"] + "_" + received_data.i["mac_adress"];
+				const statename = received_data.i["Type"] + "_" + received_data.i["MAC_Adress"];
 				
 				let DeviceArray = []
 				this.log.info("Data from device " + statename + " correctly received");
@@ -110,7 +110,7 @@ class Multicast extends utils.Adapter {
 				}				
 
 				// update name
-				array.push('"' + "name" + '" : "' + received_data.i.hostname + '"');
+				array.push('"' + "name" + '" : "' + received_data.i.Hostname + '"');
 
 				// Write attributes to instance object
 				array = JSON.parse("{" + array + "}"); //Finalize creation of object
@@ -290,8 +290,8 @@ class Multicast extends utils.Adapter {
 			this.log.debug("AsyncObject received while StateChange: " + JSON.stringify(objekt));
 			const sendMessage = {
 				//@ts-ignore objekt is not empty
-				objekt : objekt.common,
-				states : {
+				i : objekt.common,
+				s : {
 					[stateNameToSend] : {
 						//@ts-ignore state is not empty
 						value : state.val
