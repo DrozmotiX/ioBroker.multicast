@@ -77,17 +77,14 @@ class Multicast extends utils.Adapter {
 				const received_data = JSON.parse(message);	// Versuch den String in ein JSON zu verwandeln
 				const statename = received_data.i["Type"] + "_" + received_data.i["MAC_Adress"];
 				
-				let DeviceArray = []
 				this.log.info("Data from device " + statename + " correctly received");
 				this.setObjectNotExists(statename,{
 					type: "device",
 					common: {
-						name : statename 
+						name : received_data.c["Hostname"].v
 					},
 					native: {},
 				});
-
-
 
 				// Read all device related information and write into object with extend objection function
 				const objects = Object.keys(received_data.i);
@@ -103,14 +100,25 @@ class Multicast extends utils.Adapter {
 
 					this.log.info('"' + objects[i] + '" : "' + received_data.i[objects[i]] + '"');
 
+					// Check if state must contain min and max value
+					let min = "";
+					let max = "";
+					if (received_data.i[objects[i]].min !== undefined){
+						min = received_data.i[objects[i]].min;
+					}
+					
+					if (received_data.i[objects[i]].max !== undefined){
+						max = received_data.i[objects[i]].max;
+					}
+
 					// tdoStateCreate(device, name, type,role, unit, write)
-					this.doStateCreate(statename + ".Info." + objects[i], objects[i] , "number", "indicator.info","", writable);
+					this.doStateCreate(statename + ".Info." + objects[i], objects[i] , "number", received_data.i[objects[i]].r,"", writable, min, max);
 					this.setState(statename + ".Info." + objects[i], { val: received_data.i[objects[i]],ack: true});
 
 				}				
 
 				// update name
-				array.push('"' + "name" + '" : "' + received_data.i.Hostname + '"');
+				array.push('"' + "name" + '" : "' + received_data.c["Hostname"].v + '"');
 
 				// Write attributes to instance object
 				array = JSON.parse("{" + array + "}"); //Finalize creation of object
@@ -121,11 +129,13 @@ class Multicast extends utils.Adapter {
 				});	
 		
 				// Read all configuration related information and write into object with extend objection function
+
+				// To-Do :  Implement cache for case JSON does not contain configuration data
 				const config = Object.keys(received_data.c);
 				for (const i in config){
 
 					// Create state in info channel
-					this.createChannel(statename, "config");
+					this.createChannel(statename, "Config");
 
 					const writable = true;
 
@@ -139,17 +149,30 @@ class Multicast extends utils.Adapter {
 						stateCreateName = statename + ".Config." + received_data.c[config[i]].c + "." + config[i];
 					}
 					this.log.info("stateCreateName after if : " + stateCreateName);
-
+					
+					// Check if state must contain min and max value
+					let min = "";
+					let max = "";
+					if (received_data.c[config[i]].min !== undefined){
+						min = received_data.c[config[i]].min;
+					}
+					
+					if (received_data.c[config[i]].max !== undefined){
+						max = received_data.c[config[i]].max;
+					}
 
 					this.log.debug('"' + config[i] + '" : "' + received_data.c[config[i]] + '"');
 
 					// tdoStateCreate(device, name, type,role, unit, write)
-					this.doStateCreate(stateCreateName, config[i] , received_data.c[config[i]].t, received_data.c[config[i]].r,received_data.c[config[i]].u, writable);
+					this.doStateCreate(stateCreateName, config[i] , received_data.c[config[i]].t, received_data.c[config[i]].r,received_data.c[config[i]].u, writable, min, max);
 					this.setState(stateCreateName, { val: received_data.c[config[i]].v,ack: true});
 
 				}						
 
 				// Create states for all values received in JSON
+
+				// To-Do :  Implement cache for case JSON does not contain state data
+
 				const stateNames = Object.keys(received_data.s);
 				for (const i in stateNames){
 					let writable = false;
@@ -167,12 +190,23 @@ class Multicast extends utils.Adapter {
 						// do nothing
 					}
 					else { 
-						stateCreateName = statename + "." + received_data.s[stateNames[i]].c + "." + stateNames[i]
+						stateCreateName = statename + "." + received_data.s[stateNames[i]].c + "." + stateNames[i];
 					}
 					this.log.info("stateCreateName after if : " + stateCreateName);
 
+					// Check if state must contain min and max value
+					let min = "";
+					let max = "";
+					if (received_data.s[stateNames[i]].min !== undefined){
+						min = received_data.s[stateNames[i]].min;
+					}
+					
+					if (received_data.s[stateNames[i]].max !== undefined){
+						max = received_data.s[stateNames[i]].max;
+					}
+
 					// create state
-					this.doStateCreate(stateCreateName, stateNames[i], received_data.s[stateNames[i]].t, received_data.s[stateNames[i]].r,received_data.s[stateNames[i]].u, writable);
+					this.doStateCreate(stateCreateName, stateNames[i], received_data.s[stateNames[i]].t, received_data.s[stateNames[i]].r,received_data.s[stateNames[i]].u, writable, min, max);
 					
 					// write value into state
 					this.setState(stateCreateName, { val: received_data.s[stateNames[i]].v,ack: true, expire: (received_data["i"].interval *3) + 2 });
@@ -183,9 +217,6 @@ class Multicast extends utils.Adapter {
 						this.log.debug("State subscribed!: "+ stateCreateName);
 					}
 				}
-
-
-
 			} 
 			catch (error) {
 
@@ -311,7 +342,8 @@ class Multicast extends utils.Adapter {
 	// }
 
 	// Function to handle state creation
-	doStateCreate(device, name, type,role, unit, write){	
+	doStateCreate(device, name, type,role, unit, write,min, max){	
+		
 		this.setObjectNotExists(device, {
 			type: "state",
 			common: {
@@ -321,6 +353,8 @@ class Multicast extends utils.Adapter {
 				read: true,
 				write: write,
 				unit: unit,
+				min: min,
+				max: max,
 				def: 0,
 			},
 			native: {},
@@ -333,11 +367,8 @@ class Multicast extends utils.Adapter {
 			this.log.info("UDP Nachricht an IP " + send_ip +" an Port "+ parseInt(send_port) + " wurde versendet! - Die Länge der Nachricht war " + message.length +" Bytes");	
 		});
 	}
-
-
-
 }
-
+//@ts-ignore .parent exists
 if (module.parent) {
 	// Export the constructor in compact mode
 	/**
