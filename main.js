@@ -133,11 +133,10 @@ class Multicast extends utils.Adapter {
 				// To-Do :  Implement cache for case JSON does not contain configuration data
 				const config = Object.keys(received_data.c);
 				for (const i in config){
+					const writable = true;
 
 					// Create state in info channel
 					this.createChannel(statename, "Config");
-
-					const writable = true;
 
 					// Define if state must be part of channel and create state name
 					let stateCreateName = statename + ".Config." + config[i];
@@ -166,6 +165,12 @@ class Multicast extends utils.Adapter {
 					// tdoStateCreate(device, name, type,role, unit, write)
 					this.doStateCreate(stateCreateName, config[i] , received_data.c[config[i]].t, received_data.c[config[i]].r,received_data.c[config[i]].u, writable, min, max);
 					this.setState(stateCreateName, { val: received_data.c[config[i]].v,ack: true});
+
+					// if state has writable flag yes, subscribe on changes
+					if (writable === true) {
+						this.subscribeStates(stateCreateName);
+						this.log.debug("State subscribed!: "+ stateCreateName);
+					}
 
 				}						
 
@@ -316,18 +321,19 @@ class Multicast extends utils.Adapter {
 		//@ts-ignore ack is never null
 		if (state.ack === false) {
 			const deviceId = id.split(".");
-			const stateNameToSend = deviceId[3];
+			let stateNameToSend = "";
+			for (const i=3; i <= deviceId.length-1; i++) {
+				stateNameToSend += deviceId[i];
+				if(i < (deviceId.length -1)) stateNameToSend += ".";
+				
+				this.log.warn("statename: "+stateNameToSend);
+			}
 			const objekt = await this.getObjectAsync(deviceId[2]);
 			this.log.debug("AsyncObject received while StateChange: " + JSON.stringify(objekt));
 			const sendMessage = {
 				//@ts-ignore objekt is not empty
 				i : objekt.common,
-				s : {
-					[stateNameToSend] : {
-						//@ts-ignore state is not empty
-						value : state.val
-					}
-				}
+				s : {[stateNameToSend] : state.val}				//@ts-ignore state is not empty
 			};
 			// message here !
 			this.transmit(JSON.stringify(sendMessage));
