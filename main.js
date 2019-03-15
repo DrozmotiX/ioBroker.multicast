@@ -53,6 +53,7 @@ class Multicast extends utils.Adapter {
 
 		// Create state to send global multicast message
 		this.doStateCreate("global_message", "send a free multicast message", "string", "media.tts","", true);
+		this.subscribeStates("global_message");
 
 		// Open socket to receive multicast messages
 		multicast = dgram.createSocket("udp4");
@@ -78,13 +79,13 @@ class Multicast extends utils.Adapter {
 				const statename = received_data.i["Type"] + "_" + received_data.i["MAC_Adress"];
 				
 				this.log.info("Data from device " + statename + " correctly received");
-				// this.setObjectNotExists(statename,{
-				// 	type: "device",
-				// 	common: {
-				// 		name : received_data.c["Hostname"].v
-				// 	},
-				// 	native: {},
-				// });
+				this.setObjectNotExists(statename,{
+					type: "device",
+					common: {
+						name : received_data.c["Hostname"].v
+					},
+					native: {},
+				});
 
 				// Read all device related information and write into object with extend objection function
 				const objects = Object.keys(received_data.i);
@@ -98,7 +99,7 @@ class Multicast extends utils.Adapter {
 
 					const writable = false;
 
-					this.log.info('"' + objects[i] + '" : "' + received_data.i[objects[i]] + '"');
+					this.log.debug('"' + objects[i] + '" : "' + received_data.i[objects[i]] + '"');
 
 					// Check if state must contain min and max value
 					let min = "";
@@ -118,7 +119,7 @@ class Multicast extends utils.Adapter {
 				}				
 
 				// update name
-				// array.push('"' + "name" + '" : "' + received_data.c["Hostname"].v + '"');
+				array.push('"' + "name" + '" : "' + received_data.c["Hostname"].v + '"');
 
 				// Write attributes to instance object
 				array = JSON.parse("{" + array + "}"); //Finalize creation of object
@@ -140,14 +141,14 @@ class Multicast extends utils.Adapter {
 
 					// Define if state must be part of channel and create state name
 					let stateCreateName = statename + ".Config." + config[i];
-					this.log.info("stateCreateName before if : " + stateCreateName);
+					this.log.debug("stateCreateName before if : " + stateCreateName);
 					if (received_data.c[config[i]].c === undefined){
 						// do nothing
 					}
 					else { 
 						stateCreateName = statename + ".Config." + received_data.c[config[i]].c + "." + config[i];
 					}
-					this.log.info("stateCreateName after if : " + stateCreateName);
+					this.log.debug("stateCreateName after if : " + stateCreateName);
 					
 					// Check if state must contain min and max value
 					let min = "";
@@ -190,14 +191,14 @@ class Multicast extends utils.Adapter {
 
 					// Define if state must be part of channel and create state name
 					let stateCreateName = statename + "." + stateNames[i];
-					this.log.info("stateCreateName before if : " + stateCreateName);
+					this.log.debug("stateCreateName before if : " + stateCreateName);
 					if (received_data.s[stateNames[i]].c === undefined){
 						// do nothing
 					}
 					else { 
 						stateCreateName = statename + "." + received_data.s[stateNames[i]].c + "." + stateNames[i];
 					}
-					this.log.info("stateCreateName after if : " + stateCreateName);
+					this.log.debug("stateCreateName after if : " + stateCreateName);
 
 					// Check if state must contain min and max value
 					let min = "";
@@ -222,8 +223,7 @@ class Multicast extends utils.Adapter {
 						this.log.debug("State subscribed!: "+ stateCreateName);
 					}
 				}
-			} 
-			catch (error) {
+			} catch (error) {
 
 				//To-Do : ensure propper error logging for wrong firmware versions
 				this.log.error(error);
@@ -232,25 +232,6 @@ class Multicast extends utils.Adapter {
 		});
 		multicast.bind(receive_port);
 		
-		/*
-		For every state in the system there has to be also an object of type state
-		Here a simple template for a boolean variable named "testVariable"
-		Because every adapter instance uses its own unique namespace variable names can"t collide with other adapters variables
-		*/
-		// await this.setObjectAsync("testVariable", {
-		// 	type: "state",
-		// 	common: {
-		// 		name: "testVariable",
-		// 		type: "boolean",
-		// 		role: "indicator",
-		// 		read: true,
-		// 		write: true,
-		// 	},
-		// 	native: {},
-		// });
-
-		// in this template all states changes inside the adapters namespace are subscribed
-		this.subscribeStates("global_message");
 
 		/*
 		setState examples
@@ -312,41 +293,32 @@ class Multicast extends utils.Adapter {
 		if (state) {
 			// The state was changed
 			this.log.debug(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
+		
+			if (state.ack === false) {
+				const deviceId = id.split(".");
+				let stateNameToSend = "";
+				for (let i=3; i <= deviceId.length-1; i++) {
+					stateNameToSend += deviceId[i];
+					if(i < (deviceId.length -1)) stateNameToSend += ".";
+					
+					this.log.warn("statename: "+stateNameToSend);
+				}
+				const objekt = await this.getObjectAsync(deviceId[2]);
+				if (objekt !== undefined && objekt !== null) {
+					this.log.debug("AsyncObject received while StateChange: " + JSON.stringify(objekt));
+					const sendMessage = {
+						i : objekt.common,
+						s : {[stateNameToSend] : state.val}				
+					};
+					// message here !
+					this.transmit(JSON.stringify(sendMessage));
+				}
+			}		
 		} else {
 			// The state was deleted
 			this.log.debug(`state ${id} deleted`);
 		}
-		
-			
-
-		//@ts-ignore ack is never null
-		if (state.ack === false) {
-			const deviceId = id.split(".");
-			let stateNameToSend = "";
-			for (const i=3; i <= deviceId.length-1; i++) {
-				stateNameToSend += deviceId[i];
-				if(i < (deviceId.length -1)) stateNameToSend += ".";
-				
-				this.log.warn("statename: "+stateNameToSend);
-			}
-			const objekt = await this.getObjectAsync(deviceId[2]);
-			this.log.debug("AsyncObject received while StateChange: " + JSON.stringify(objekt));
-			const sendMessage = {
-				//@ts-ignore objekt is not empty
-				i : objekt.common,
-				s : {[stateNameToSend] : state.val}				//@ts-ignore state is not empty
-			};
-			// message here !
-			this.transmit(JSON.stringify(sendMessage));
-		}
 	}
-
-	// // Function to handle state creation
-	// doChanngelCreate(){
-
-	// 	this.createChannel(device, name);
-
-	// }
 
 	// Function to handle state creation
 	doStateCreate(device, name, type,role, unit, write,min, max){	
@@ -368,10 +340,11 @@ class Multicast extends utils.Adapter {
 		});
 	}
 
+	// Send UDP message
 	transmit(message){
 		multicast.send(message, 0, message.length, parseInt(send_port) ,send_ip, (err, bytes) => {
 			if (err) throw err;
-			this.log.info("UDP Nachricht an IP " + send_ip +" an Port "+ parseInt(send_port) + " wurde versendet! - Die Länge der Nachricht war " + message.length +" Bytes");	
+			this.log.info("UDP Nachricht an IP " + send_ip + " an Port "+ parseInt(send_port) + " wurde versendet! - Die Länge der Nachricht war " + message.length +" Bytes");	
 		});
 	}
 }
