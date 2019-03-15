@@ -78,13 +78,13 @@ class Multicast extends utils.Adapter {
 				const statename = received_data.i["Type"] + "_" + received_data.i["MAC_Adress"];
 				
 				this.log.info("Data from device " + statename + " correctly received");
-				this.setObjectNotExists(statename,{
-					type: "device",
-					common: {
-						name : received_data.c["Hostname"].v
-					},
-					native: {},
-				});
+				// this.setObjectNotExists(statename,{
+				// 	type: "device",
+				// 	common: {
+				// 		name : received_data.c["Hostname"].v
+				// 	},
+				// 	native: {},
+				// });
 
 				// Read all device related information and write into object with extend objection function
 				const objects = Object.keys(received_data.i);
@@ -118,7 +118,7 @@ class Multicast extends utils.Adapter {
 				}				
 
 				// update name
-				array.push('"' + "name" + '" : "' + received_data.c["Hostname"].v + '"');
+				// array.push('"' + "name" + '" : "' + received_data.c["Hostname"].v + '"');
 
 				// Write attributes to instance object
 				array = JSON.parse("{" + array + "}"); //Finalize creation of object
@@ -278,9 +278,10 @@ class Multicast extends utils.Adapter {
 	 * Is called when adapter shuts down - callback has to be called under any circumstances!
 	 * @param {() => void} callback
 	 */
-	onUnload(callback) {
+	async onUnload(callback) {
 		try {
 			this.log.info("cleaned everything up...");
+			multicast.close();
 			callback();
 		} catch (e) {
 			callback();
