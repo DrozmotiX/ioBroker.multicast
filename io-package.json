@@ -59,6 +59,7 @@
 		"loglevel": "info",
 		"mode": "daemon",
 		"type": "network",
+		"license": "MIT",
 		"compact": true,
 		"materialize": true,
 		"dependencies": [
