@@ -1,8 +1,20 @@
 {
 	"common": {
 		"name": "multicast",
-		"version": "0.0.5",
+		"version": "0.0.6",
 		"news": {
+			"0.0.6": {
+				"en": "Beta release candidate",
+				"de": "Beta-Release-Kandidat",
+				"ru": "Бета-версия кандидата",
+				"pt": "Candidato a lançamento beta",
+				"nl": "Bèta-vrijgifte kandidaat",
+				"fr": "Version bêta candidate",
+				"it": "Candidato alla versione beta",
+				"es": "Beta candidato candidato",
+				"pl": "Kandydat do wersji beta",
+				"zh-cn": "Beta版候选版"
+			},
 			"0.0.1": {
 				"en": "initial release",
 				"de": "Erstveröffentlichung",
@@ -73,13 +85,13 @@
 		"send_2": 12,
 		"send_3": 255,
 		"send_4": 252,
-		"send_port": 99633,
+		"send_port": 9633,
 		"receive_1": 239,
 		"receive_2": 12,
 		"receive_3": 255,
 		"receive_4": 151,
 		"receive_port": 9501,
-		"dev_logging" : false
+		"Time_Sync" : 10
 	},
 	"objects": [],
 	"instanceObjects": []
