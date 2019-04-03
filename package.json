@@ -1,6 +1,6 @@
 {
   "name": "iobroker.multicast",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Receive and sent multicast information",
   "author": {
     "name": "Dutchman & Andiling",

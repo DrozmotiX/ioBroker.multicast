@@ -49,8 +49,8 @@ class Multicast extends utils.Adapter {
 		this.log.silly("Port des Senders = : " + send_port);
 
 		// Create state to send global multicast message
-		this.doStateCreate("global_message", "send a free multicast message", "string", "media.tts","", true);
-		this.subscribeStates("global_message");
+		// this.doStateCreate("global_message", "send a free multicast message", "string", "media.tts","", true);
+		// this.subscribeStates("global_message");
 
 		// Open socket to receive multicast messages
 		multicast = dgram.createSocket("udp4");
@@ -80,7 +80,6 @@ class Multicast extends utils.Adapter {
 				const statename = received_data.i["Devicename"];
 				// const statename = received_data.i["Type"] + "_" + received_data.i["MAC_Adress"];
 				
-
 				// read array if message is related to initialisation or state update
 				if (received_data.Type == "Object") {
 					// initialization
@@ -95,6 +94,12 @@ class Multicast extends utils.Adapter {
 				} else if (received_data.Type == "StateInterval") {
 					// state update
 					this.stateupdate(received_data, false);
+				} else if (received_data.Type == "Recovery"){
+					// state update
+					this.doStateRestore(received_data);
+				} else if (received_data.Type == "Heartbeat"){
+					// state update
+					this.doHeartbeat(received_data);
 				}
 
 			} catch (error) {
@@ -238,6 +243,7 @@ class Multicast extends utils.Adapter {
 		const objekt = {};
 		objekt.common = array;
 
+		// rebuild in propper array push !
 		timeout = setTimeout( () => {
 		// message here !
 			this.extendObject(statename, objekt, (err) => {
@@ -276,7 +282,7 @@ class Multicast extends utils.Adapter {
 
 			// create state and update value 
 			this.doStateCreate(stateCreateName, config[i] , received_data.c[config[i]].t, received_data.c[config[i]].r,received_data.c[config[i]].u, writable, min, max);
-			this.setState(stateCreateName, { val: received_data.c[config[i]].v,ack: true});
+			this.setState(stateCreateName, { val: received_data.c[config[i]].v, ack: true});
 
 			// if state has writable flag yes, subscribe on changes
 			this.dosubscribe(stateCreateName, writable);
@@ -308,9 +314,10 @@ class Multicast extends utils.Adapter {
 			// create state and update value 
 			this.doStateCreate(stateCreateName, stateNames[i], received_data.s[stateNames[i]].t, received_data.s[stateNames[i]].r,received_data.s[stateNames[i]].u, writable, min, max);
 			
-			this.log.debug("Value of intervall : " + received_data.c["Interval_Object"].v);
-			this.setState(stateCreateName, { val: received_data.s[stateNames[i]].v,ack: true, expire: (received_data.c["Interval_Object"].v *3) + 2 });
-			
+			// this.log.debug("Value of intervall : " + received_data.c["Interval_Object"].v);
+			// this.setState(stateCreateName, { val: received_data.s[stateNames[i]].v,ack: true, expire: (received_data.c["Interval_Object"].v *3) + 2 });
+			this.setState(stateCreateName, { val: received_data.s[stateNames[i]].v,ack: true});
+
 			// if state has writable flag yes, subscribe on changes
 			this.dosubscribe(stateCreateName, writable);
 		}
@@ -328,8 +335,8 @@ class Multicast extends utils.Adapter {
 	// function to handle state updates
 	async stateupdate(received_data, confirm){
 		const stateNames = Object.keys(received_data.s);
-		const exp_timer = await this.getStateAsync(this.namespace + ".Config.System.Interval_Measure");
-		this.log.debug("Configured interval : " + this.namespace + " || " + exp_timer);
+		// const exp_timer = await this.getStateAsync(this.namespace + ".Config.System.Interval_Measure");
+		// this.log.debug("Configured interval : " + this.namespace + " || " + exp_timer);
 
 		for (const i in stateNames){
 
@@ -337,17 +344,14 @@ class Multicast extends utils.Adapter {
 			this.log.debug("Statename to update : " + statename + " with value : " + received_data.s[stateNames[i]]);
 
 			const deviceId = statename.split(".");
-			let stateNameToSend = "";
-			for (let i=3; i <= deviceId.length-1; i++) {
-				stateNameToSend += deviceId[i];
-				if(i < (deviceId.length -1)) stateNameToSend += ".";
-			}			
-
 			this.log.debug("Statename to sent : " + deviceId[2]);
 
 			const objekt = await this.getObjectAsync(deviceId[2]);
 			this.log.debug("Return of async getObject : " + JSON.stringify(objekt));
+
+			// In case of device not found, request complete device
 			if (objekt === undefined || objekt === null) {
+				this.log.warn("Unknown device received, requesting all device data");
 				const sendMessage = {
 					i : received_data.i,
 					Type : "sync"				
@@ -458,6 +462,74 @@ class Multicast extends utils.Adapter {
 
 		}, intervall);
 
+	}
+
+	async doStateRestore(received_data){
+		const device = received_data.i["Devicename"];
+		const objekt = await this.getObjectAsync(device);
+		this.log.debug("Return of async getObject : " + JSON.stringify(objekt));
+
+		// In case of device not found, request complete device
+		if (objekt === undefined || objekt === null) {
+			this.log.warn("Unknown device received, requesting all device data");
+			const sendMessage = {
+				i : received_data.i,
+				Type : "sync"				
+			};
+			// message here !
+			this.transmit(JSON.stringify(sendMessage));
+		
+		} else {
+			this.log.warn("Restore function triggered for device : " + device);
+			const states = await this.getStatesOfAsync(device);
+
+			const state_values = {};
+			for (const i in states){
+				const tmp = states[i]._id;
+				const deviceId = tmp.split(".");
+				let stateNameToSend = "";
+				for (let i=3; i <= deviceId.length-1; i++) {
+					stateNameToSend += deviceId[i];
+					if(i < (deviceId.length -1)) stateNameToSend += ".";
+				}
+
+				if (states[i].common.write === true && deviceId[3] !== "Config"){
+					const value = await this.getStateAsync(states[i]._id);
+					this.log.debug("Received data from getstate in restore function : " + JSON.stringify(value))
+					if (!value) return;
+					this.log.error("Statename to recover : " + stateNameToSend + " with value : " + value.val);
+					state_values[stateNameToSend] = value.val;
+				}
+				this.log.debug("tmp_array content : " + JSON.stringify(state_values));
+			}
+			const arraytosend = {
+				i : objekt.common,
+				s : state_values,
+				Type : "Recovery-Data"
+			};
+			this.log.debug("Array after object extension : " + JSON.stringify(arraytosend));
+			// message here !
+			this.transmit(JSON.stringify(arraytosend));
+		}
+
+	}
+
+	doHeartbeat(received_data) {
+
+		this.log.error("Hartbeat Message received" + JSON.stringify(received_data));
+
+		this.setObjectNotExists("connected", {
+			type: "state",
+			common: {
+				name: "online",
+				type: "boolean",
+				role: "indicator.connection",
+				read: true,
+				write: false,
+				def: false,
+			},
+			native: {},
+		});
 	}
 
 	// Send UDP message
