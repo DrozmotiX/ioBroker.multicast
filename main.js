@@ -12,8 +12,8 @@ const utils = require("@iobroker/adapter-core");
 const dgram = require("dgram");
 
 // Here Global variables
-let receive_ip, receive_port, send_ip, send_port, multicast, timeout;
-const send_Delay = 200;
+let receive_ip, receive_port, send_ip, send_port, multicast;
+const send_Delay = 200, timeout_connection = {}, timeout_state = {}, count_retry = {};
 
 class Multicast extends utils.Adapter {
 
@@ -57,7 +57,7 @@ class Multicast extends utils.Adapter {
 		multicast.on("listening", () => {
 			const receiveaddress = multicast.address();
 			multicast.addMembership(receive_ip);
-			this.log.info("Multicast Client listening on " + receiveaddress.address + ":" + receiveaddress.port + "and send to " + send_ip + ":" + send_port);
+			this.log.info("Multicast Client listening on " + receiveaddress.address + ":" + receiveaddress.port + " and send to " + send_ip + ":" + send_port);
 		});
 
 		// Bind UDP listener to receice port
@@ -191,6 +191,13 @@ class Multicast extends utils.Adapter {
 					};
 					// message here !
 					this.transmit(JSON.stringify(sendMessage));
+
+					// Start timer of 300 ms to check if state is aknowledge, if not send again
+					// Clear running timer if exist
+					( () => {if (timeout_state[deviceId[2]]) {clearTimeout(timeout_state[deviceId[2]]); timeout_state[deviceId[2]] = null;}})();
+					timeout_state[deviceId[2]] = setTimeout( () => {
+						this.doStateRetry(id,state,deviceId[2]);
+					}, 500);
 				}
 			}		
 		} else {
@@ -199,10 +206,44 @@ class Multicast extends utils.Adapter {
 		}
 	}
 
-	initialize(received_data, statename){
+	async doStateRetry(id, state, device){
+		// Get data from state and verify ACK value
+		const ack_check = await this.getStateAsync(id);
+		if (!ack_check) return;
+
+		// Check if value is aknowledged, if not resend same message again
+		if (ack_check.ack === false && (count_retry[id] === undefined || count_retry[id] <= 5) ){
+
+			// When counter is undefined, start at 1
+			if (count_retry[id] === undefined ){
+				count_retry[id] = 1;
+				this.log.warn("State change not aknowledged, resending state information");
+				this.onStateChange(id,state);
+
+			// When counter is < 5 add + 1 to counter
+			} else if (count_retry[id] < 5 ){
+				count_retry[id] = count_retry[id] + 1;
+				this.log.warn("State change not aknowledged, resending state information");
+				this.onStateChange(id,state);
+
+			// Stop resending message when maximum counter is reached and set connection state to false
+			} else if (count_retry[id] === 5 ){
+				this.log.error("Maximum retry count reached, stop sending messages and set connected value to false !");
+				this.setState(this.namespace + "." + device + ".Info.connected",{ val: false, ack: true});
+			} 
+
+		// Reset counter to 0 for next run
+		} else if (ack_check.ack === true) { 
+			// Stop retrying and switch connection state of device to disabled
+			this.log.debug("State change of device : " + id + " aknowledged");
+			count_retry[id] = 0;
+		}
+	}
+
+	async initialize(received_data, statename){
 
 		// Create Device objekt
-		this.setObjectNotExists(statename,{
+		await this.setObjectNotExistsAsync(statename,{
 			type: "device",
 			common: {
 				name : received_data.c["Hostname"].v
@@ -212,10 +253,12 @@ class Multicast extends utils.Adapter {
 
 		// Read all device related information and write into object with extend objection function
 		const objects = Object.keys(received_data.i);
-		let array = [];
+		const array = {};
+		const objekt = {};
 		for (const i in objects){
 			// Prepare values to be extended in instance object
-			array.push('"' + objects[i] + '" : "' + received_data.i[objects[i]] + '"');
+			array[objects[i]] = received_data.i[objects[i]];
+			this.log.debug("Contain of array for info in device loop : " + JSON.stringify(array));
 
 			// Create state in info channel
 			this.createChannel(statename, "info");
@@ -233,25 +276,14 @@ class Multicast extends utils.Adapter {
 			this.doStateCreate(statename + ".Info." + objects[i], objects[i] , "number", received_data.i[objects[i]].r,"", writable, min, max);
 			this.setState(statename + ".Info." + objects[i], { val: received_data.i[objects[i]],ack: true});
 
+			objekt.common = array;
+	
 		}
 
-		// update name
-		array.push('"' + "name" + '" : "' + received_data.c["Hostname"].v + '"');
-
-		// Write attributes to device object
-		array = JSON.parse("{" + array + "}"); //Finalize creation of object
-		const objekt = {};
-		objekt.common = array;
-
-		// rebuild in propper array push !
-		timeout = setTimeout( () => {
-		// message here !
-			this.extendObject(statename, objekt, (err) => {
-				if (err !== null){this.log.error("Changing alias name failed with : " + err);}
-			});
-		}, 2000);
-		
-		
+		this.log.debug("Contain of array for info in device : " + JSON.stringify(objekt));
+		this.extendObject(statename, objekt, (err) => {
+			if (err !== null){this.log.error("Changing alias name failed with : " + err);}
+		});
 		
 		// Read all configuration related information and write into object with extend objection function
 		// To-Do :  Implement cache for case JSON does not contain configuration data
@@ -514,11 +546,11 @@ class Multicast extends utils.Adapter {
 
 	}
 
-	doHeartbeat(received_data) {
+	async doHeartbeat(received_data) {
 
-		this.log.error("Hartbeat Message received" + JSON.stringify(received_data));
-
-		this.setObjectNotExists("connected", {
+		this.log.debug("Hartbeat Message received" + JSON.stringify(received_data));
+		this.log.debug(received_data.i["Devicename"]);
+		await this.setObjectNotExists(received_data.i["Devicename"] + ".Info.connected", {
 			type: "state",
 			common: {
 				name: "online",
@@ -530,6 +562,12 @@ class Multicast extends utils.Adapter {
 			},
 			native: {},
 		});
+
+		this.setState(received_data.i["Devicename"] + ".Info.connected",{ val: true, ack: true});
+		(function () {if (timeout_connection[received_data.i["Devicename"]]) {clearTimeout(timeout_connection[received_data.i["Devicename"]]); timeout_connection[received_data.i["Devicename"]] = null;}})();
+		timeout_connection[received_data.i["Devicename"]] = setTimeout( () => {
+			this.setState(received_data.i["Devicename"] + ".Info.connected",{ val: false, ack: true});
+		}, 60000);
 	}
 
 	// Send UDP message
