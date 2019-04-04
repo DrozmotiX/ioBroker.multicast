@@ -63,7 +63,7 @@ class Multicast extends utils.Adapter {
 		// Bind UDP listener to receice port
 		multicast.bind(receive_port);
 		this.subscribeStates("*");
-		// this.doTimesync();
+		this.doTimesync();
 
 		// Ack on message in multicast listener
 		multicast.on("message", (message, remote) => {
@@ -90,10 +90,12 @@ class Multicast extends utils.Adapter {
 				} else if (received_data.Type == "State") {
 					// state update
 					this.stateupdate(received_data, true);
+					this.setState(received_data.i["Devicename"] + ".Info.Connected",{ val: true, ack: true});
 
 				} else if (received_data.Type == "StateInterval") {
 					// state update
 					this.stateupdate(received_data, false);
+					this.setState(received_data.i["Devicename"] + ".Info.Connected",{ val: true, ack: true});
 				} else if (received_data.Type == "Recovery"){
 					// state update
 					this.doStateRestore(received_data);
@@ -229,7 +231,7 @@ class Multicast extends utils.Adapter {
 			// Stop resending message when maximum counter is reached and set connection state to false
 			} else if (count_retry[id] === 5 ){
 				this.log.error("Maximum retry count reached, stop sending messages and set connected value to false !");
-				this.setState(this.namespace + "." + device + ".Info.connected",{ val: false, ack: true});
+				this.setState(this.namespace + "." + device + ".Info.Connected",{ val: false, ack: true});
 			} 
 
 		// Reset counter to 0 for next run
@@ -477,9 +479,12 @@ class Multicast extends utils.Adapter {
 
 	doTimesync(){
 		// In case of error, use 10 minutes as default
-		let intervall = 10000;
+		let intervall;
 		if (this.config.Time_Sync !== undefined && this.config.Time_Sync !== null){
-			intervall = (this.config.Time_Sync * 1000);
+			intervall = (this.config.Time_Sync * 60000);
+		} else {
+			this.log.error("Error reading time-intervall settings, using value of 1 minute");
+			intervall = 60000;
 		}
 		setInterval(() => {
 			const TimeStamp = (new Date().getTime());
@@ -503,7 +508,7 @@ class Multicast extends utils.Adapter {
 
 		// In case of device not found, request complete device
 		if (objekt === undefined || objekt === null) {
-			this.log.warn("Unknown device received, requesting all device data");
+			this.log.info("Unknown device received, requesting all device data");
 			const sendMessage = {
 				i : received_data.i,
 				Type : "sync"				
@@ -512,7 +517,7 @@ class Multicast extends utils.Adapter {
 			this.transmit(JSON.stringify(sendMessage));
 		
 		} else {
-			this.log.warn("Restore function triggered for device : " + device);
+			this.log.info("Restore function triggered for device : " + device);
 			const states = await this.getStatesOfAsync(device);
 
 			const state_values = {};
@@ -527,7 +532,7 @@ class Multicast extends utils.Adapter {
 
 				if (states[i].common.write === true && deviceId[3] !== "Config"){
 					const value = await this.getStateAsync(states[i]._id);
-					this.log.debug("Received data from getstate in restore function : " + JSON.stringify(value))
+					this.log.debug("Received data from getstate in restore function : " + JSON.stringify(value));
 					if (!value) return;
 					this.log.error("Statename to recover : " + stateNameToSend + " with value : " + value.val);
 					state_values[stateNameToSend] = value.val;
@@ -550,7 +555,7 @@ class Multicast extends utils.Adapter {
 
 		this.log.debug("Hartbeat Message received" + JSON.stringify(received_data));
 		this.log.debug(received_data.i["Devicename"]);
-		await this.setObjectNotExists(received_data.i["Devicename"] + ".Info.connected", {
+		await this.setObjectNotExists(received_data.i["Devicename"] + ".Info.Connected", {
 			type: "state",
 			common: {
 				name: "online",
@@ -563,10 +568,10 @@ class Multicast extends utils.Adapter {
 			native: {},
 		});
 
-		this.setState(received_data.i["Devicename"] + ".Info.connected",{ val: true, ack: true});
+		this.setState(received_data.i["Devicename"] + ".Info.Connected",{ val: true, ack: true});
 		(function () {if (timeout_connection[received_data.i["Devicename"]]) {clearTimeout(timeout_connection[received_data.i["Devicename"]]); timeout_connection[received_data.i["Devicename"]] = null;}})();
 		timeout_connection[received_data.i["Devicename"]] = setTimeout( () => {
-			this.setState(received_data.i["Devicename"] + ".Info.connected",{ val: false, ack: true});
+			this.setState(received_data.i["Devicename"] + ".Info.Connected",{ val: false, ack: true});
 		}, 60000);
 	}
 
