@@ -13,7 +13,7 @@ const dgram = require("dgram");
 
 // Here Global variables
 let receive_ip, receive_port, send_ip, send_port, multicast;
-const send_Delay = 200, timeout_connection = {}, timeout_state = {}, count_retry = {};
+const timeout_connection = {}, timeout_state = {}, count_retry = {};
 
 class Multicast extends utils.Adapter {
 
@@ -187,6 +187,8 @@ class Multicast extends utils.Adapter {
 				this.log.debug("Return of async getObject : " + JSON.stringify(objekt));
 				if (objekt !== undefined && objekt !== null) {
 					this.log.debug("AsyncObject received while StateChange: " + JSON.stringify(objekt));
+					// Add TimeStamp to common object in info channel
+					objekt.common["ts"] = (new Date().getTime());
 					const sendMessage = {
 						i : objekt.common,
 						s : {[stateNameToSend] : state.val}				
@@ -257,13 +259,14 @@ class Multicast extends utils.Adapter {
 		const objects = Object.keys(received_data.i);
 		const array = {};
 		const objekt = {};
+
+		// Create info channel
+		await this.createChannelAsync(statename,"Info");
+		// this.createChannel(statename, "Info");
 		for (const i in objects){
 			// Prepare values to be extended in instance object
 			array[objects[i]] = received_data.i[objects[i]];
 			this.log.debug("Contain of array for info in device loop : " + JSON.stringify(array));
-
-			// Create state in info channel
-			this.createChannel(statename, "info");
 
 			// Info channel is always read only, set hardcoded
 			const writable = false;
@@ -290,12 +293,12 @@ class Multicast extends utils.Adapter {
 		// Read all configuration related information and write into object with extend objection function
 		// To-Do :  Implement cache for case JSON does not contain configuration data
 		const config = Object.keys(received_data.c);
+
+		// Create config channel
+		this.createChannel(statename, "Config");
 		for (const i in config){
 			// Config channel is always writable, set hardcoded
 			const writable = true;
-
-			// Create state in info channel
-			this.createChannel(statename, "Config");
 
 			// Define if state must be part of channel and create state name
 			let stateCreateName = statename + ".Config." + config[i];
@@ -336,7 +339,9 @@ class Multicast extends utils.Adapter {
 			if (received_data.s[stateNames[i]].c === undefined){
 				// do nothing
 			}
-			else { 
+			else {
+				// Create state in info channel
+				this.createChannel(statename, received_data.s[stateNames[i]].c);
 				stateCreateName = statename + "." + received_data.s[stateNames[i]].c + "." + stateNames[i];
 			}
 			this.log.debug("stateCreateName after if : " + stateCreateName);
@@ -356,6 +361,8 @@ class Multicast extends utils.Adapter {
 			this.dosubscribe(stateCreateName, writable);
 		}
 
+		// Add TimeStamp to common object in info channel
+		objekt.common["ts"] = (new Date().getTime());
 		const confirm = {
 			i : objekt.common,
 			Type : "synced"				
@@ -385,6 +392,8 @@ class Multicast extends utils.Adapter {
 
 			// In case of device not found, request complete device
 			if (objekt === undefined || objekt === null) {
+				// Add TimeStamp to common object in info channel
+				received_data.i["ts"] = (new Date().getTime());
 				this.log.warn("Unknown device received, requesting all device data");
 				const sendMessage = {
 					i : received_data.i,
@@ -399,17 +408,17 @@ class Multicast extends utils.Adapter {
 				// this.log.debug("Value of intervall : " + received_data.c["Interval"].v);
 				this.setState(statename, { val: received_data.s[stateNames[i]],ack: true});
 				
+				// Add TimeStamp to common object in info channel
+				objekt.common["ts"] = (new Date().getTime());
+				
 				if (confirm === true){
 
 					const confirm = {
 						i : objekt.common,
 						Type : "OK"				
 					};
-
-					// timeout = setTimeout( () => {
 					// message here !
 					this.transmit(JSON.stringify(confirm));
-					// }, send_Delay);
 				}
 			}
 		}
@@ -509,6 +518,8 @@ class Multicast extends utils.Adapter {
 		// In case of device not found, request complete device
 		if (objekt === undefined || objekt === null) {
 			this.log.info("Unknown device received, requesting all device data");
+			// Add current timestamp to object
+			received_data.i["ts"] = (new Date().getTime());
 			const sendMessage = {
 				i : received_data.i,
 				Type : "sync"				
@@ -530,15 +541,17 @@ class Multicast extends utils.Adapter {
 					if(i < (deviceId.length -1)) stateNameToSend += ".";
 				}
 
-				if (states[i].common.write === true && deviceId[3] !== "Config"){
-					const value = await this.getStateAsync(states[i]._id);
-					this.log.debug("Received data from getstate in restore function : " + JSON.stringify(value));
-					if (!value) return;
-					this.log.error("Statename to recover : " + stateNameToSend + " with value : " + value.val);
-					state_values[stateNameToSend] = value.val;
-				}
+				const value = await this.getStateAsync(states[i]._id);
+				this.log.debug("Received data from getstate in restore function : " + JSON.stringify(value));
+				if (!value) return;
+				this.log.error("Statename to recover : " + stateNameToSend + " with value : " + value.val);
+				state_values[stateNameToSend] = value.val;
+
 				this.log.debug("tmp_array content : " + JSON.stringify(state_values));
 			}
+			// Add current timestamp to object
+			objekt.common["ts"] = (new Date().getTime());
+
 			const arraytosend = {
 				i : objekt.common,
 				s : state_values,
@@ -548,7 +561,6 @@ class Multicast extends utils.Adapter {
 			// message here !
 			this.transmit(JSON.stringify(arraytosend));
 		}
-
 	}
 
 	async doHeartbeat(received_data) {
@@ -580,7 +592,7 @@ class Multicast extends utils.Adapter {
 		multicast.send(message, 0, message.length, parseInt(send_port) ,send_ip, (err, bytes) => {
 			if (err) throw err;
 			this.log.debug("UDP Message content : " + message);
-			this.log.debug("UDP Nachricht an IP " + send_ip + " an Port "+ parseInt(send_port) + " wurde versendet! - Die Länge der Nachricht war " + message.length +" Bytes");	
+			this.log.debug("UDP Nachricht an IP " + send_ip + " an Port "+ parseInt(send_port) + " wurde versendet! - Die Länge der Nachricht war " + message.length + " Bytes " + bytes);	
 		});
 	}
 }
