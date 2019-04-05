@@ -96,9 +96,11 @@ class Multicast extends utils.Adapter {
 					// state update
 					this.stateupdate(received_data, false);
 					this.setState(received_data.i["Devicename"] + ".Info.Connected",{ val: true, ack: true});
+
 				} else if (received_data.Type == "Recovery"){
 					// state update
 					this.doStateRestore(received_data);
+
 				} else if (received_data.Type == "Heartbeat"){
 					// state update
 					this.doHeartbeat(received_data);
@@ -221,19 +223,20 @@ class Multicast extends utils.Adapter {
 			// When counter is undefined, start at 1
 			if (count_retry[id] === undefined ){
 				count_retry[id] = 1;
-				this.log.warn("State change not aknowledged, resending state information");
+				this.log.warn("State change for device : " + id + " not aknowledged, resending information");
 				this.onStateChange(id,state);
 
 			// When counter is < 5 add + 1 to counter
 			} else if (count_retry[id] < 5 ){
 				count_retry[id] = count_retry[id] + 1;
-				this.log.warn("State change not aknowledged, resending state information");
+				this.log.warn("State change for device : " + id + " not aknowledged, resending information");
 				this.onStateChange(id,state);
 
 			// Stop resending message when maximum counter is reached and set connection state to false
 			} else if (count_retry[id] === 5 ){
-				this.log.error("Maximum retry count reached, stop sending messages and set connected value to false !");
+				this.log.error("Maximum retry count reached, device : " + device + " not connected !");
 				this.setState(this.namespace + "." + device + ".Info.Connected",{ val: false, ack: true});
+				count_retry[id] = 0;
 			} 
 
 		// Reset counter to 0 for next run
@@ -285,6 +288,8 @@ class Multicast extends utils.Adapter {
 	
 		}
 
+		objekt.common["name"] = received_data.c["Hostname"].v;
+		this.log.debug("Content of objekt common : " + JSON.stringify(objekt));
 		this.log.debug("Contain of array for info in device : " + JSON.stringify(objekt));
 		this.extendObject(statename, objekt, (err) => {
 			if (err !== null){this.log.error("Changing alias name failed with : " + err);}
@@ -362,7 +367,7 @@ class Multicast extends utils.Adapter {
 		}
 
 		// Add TimeStamp to common object in info channel
-		objekt.common["ts"] = (new Date().getTime());
+		objekt.common["ts"] = await this.doGetcurrentTime;
 		const confirm = {
 			i : objekt.common,
 			Type : "synced"				
@@ -378,51 +383,47 @@ class Multicast extends utils.Adapter {
 		const stateNames = Object.keys(received_data.s);
 		// const exp_timer = await this.getStateAsync(this.namespace + ".Config.System.Interval_Measure");
 		// this.log.debug("Configured interval : " + this.namespace + " || " + exp_timer);
+		
+		const objekt = await this.getObjectAsync(received_data.i["Devicename"]);
+		this.log.debug("Return of async getObject : " + JSON.stringify(objekt));
 
-		for (const i in stateNames){
+		// In case of device not found, request complete device
+		if (objekt === undefined || objekt === null) {
+			// Add TimeStamp to common object in info channel
+			received_data.i["ts"] = (new Date().getTime());
+			this.log.warn("Unknown device received, requesting all device data");
+			const sendMessage = {
+				i : received_data.i,
+				Type : "sync"				
+			};
+			// message here !
+			this.transmit(JSON.stringify(sendMessage));
+		
+		} else {
 
-			const statename = this.namespace + "." + stateNames[i];
-			this.log.debug("Statename to update : " + statename + " with value : " + received_data.s[stateNames[i]]);
-
-			const deviceId = statename.split(".");
-			this.log.debug("Statename to sent : " + deviceId[2]);
-
-			const objekt = await this.getObjectAsync(deviceId[2]);
-			this.log.debug("Return of async getObject : " + JSON.stringify(objekt));
-
-			// In case of device not found, request complete device
-			if (objekt === undefined || objekt === null) {
-				// Add TimeStamp to common object in info channel
-				received_data.i["ts"] = (new Date().getTime());
-				this.log.warn("Unknown device received, requesting all device data");
-				const sendMessage = {
-					i : received_data.i,
-					Type : "sync"				
-				};
-				// message here !
-				this.transmit(JSON.stringify(sendMessage));
-			
-			} else {
-
+			for (const i in stateNames){
+				const statename = this.namespace + "." + stateNames[i];
+				this.log.debug("Statename to update : " + statename + " with value : " + received_data.s[stateNames[i]]);
+		
+				const deviceId = statename.split(".");
+				this.log.debug("Statename to sent : " + deviceId[2]);
 				// update state
 				// this.log.debug("Value of intervall : " + received_data.c["Interval"].v);
 				this.setState(statename, { val: received_data.s[stateNames[i]],ack: true});
-				
-				// Add TimeStamp to common object in info channel
-				objekt.common["ts"] = (new Date().getTime());
-				
-				if (confirm === true){
+			}				
+			// Add TimeStamp to common object in info channel
+			objekt.common["ts"] = (new Date().getTime());
+			
+			if (confirm === true){
 
-					const confirm = {
-						i : objekt.common,
-						Type : "OK"				
-					};
-					// message here !
-					this.transmit(JSON.stringify(confirm));
-				}
+				const confirm = {
+					i : objekt.common,
+					Type : "OK"				
+				};
+				// message here !
+				this.transmit(JSON.stringify(confirm));
 			}
 		}
-
 	}
 
 	// Function to handle state creation
@@ -585,6 +586,11 @@ class Multicast extends utils.Adapter {
 		timeout_connection[received_data.i["Devicename"]] = setTimeout( () => {
 			this.setState(received_data.i["Devicename"] + ".Info.Connected",{ val: false, ack: true});
 		}, 60000);
+	}
+
+	doGetcurrentTime(){
+		const time = (new Date().getTime());
+		return time;
 	}
 
 	// Send UDP message
