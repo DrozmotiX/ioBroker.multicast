@@ -1,7 +1,7 @@
 {
 	"common": {
 		"name": "multicast",
-		"version": "0.0.76",
+		"version": "0.0.78",
 		"news": {
 			"0.0.7": {
 				"en": "Recovery functionality implemented",

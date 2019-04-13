@@ -536,19 +536,20 @@ class Multicast extends utils.Adapter {
 			for (const i in states){
 				const tmp = states[i]._id;
 				const deviceId = tmp.split(".");
-				let stateNameToSend = "";
-				for (let i=3; i <= deviceId.length-1; i++) {
-					stateNameToSend += deviceId[i];
-					if(i < (deviceId.length -1)) stateNameToSend += ".";
+				if (deviceId[3] !== "Info"){
+					let stateNameToSend = "";
+					for (let i=3; i <= deviceId.length-1; i++) {
+						stateNameToSend += deviceId[i];
+						if(i < (deviceId.length -1)) stateNameToSend += ".";
+					}
+					const value = await this.getStateAsync(states[i]._id);
+					this.log.debug("Received data from getstate in restore function : " + JSON.stringify(value));
+					if (!value) return;
+					this.log.error("Statename to recover : " + stateNameToSend + " with value : " + value.val);
+					state_values[stateNameToSend] = value.val;
+
+					this.log.debug("tmp_array content : " + JSON.stringify(state_values));
 				}
-
-				const value = await this.getStateAsync(states[i]._id);
-				this.log.debug("Received data from getstate in restore function : " + JSON.stringify(value));
-				if (!value) return;
-				this.log.error("Statename to recover : " + stateNameToSend + " with value : " + value.val);
-				state_values[stateNameToSend] = value.val;
-
-				this.log.debug("tmp_array content : " + JSON.stringify(state_values));
 			}
 			// Add current timestamp to object
 			objekt.common["ts"] = (new Date().getTime());
