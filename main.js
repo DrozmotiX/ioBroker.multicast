@@ -545,7 +545,7 @@ class Multicast extends utils.Adapter {
 					const value = await this.getStateAsync(states[i]._id);
 					this.log.debug("Received data from getstate in restore function : " + JSON.stringify(value));
 					if (!value) return;
-					this.log.error("Statename to recover : " + stateNameToSend + " with value : " + value.val);
+					this.log.debug("Statename to recover : " + stateNameToSend + " with value : " + value.val);
 					state_values[stateNameToSend] = value.val;
 
 					this.log.debug("tmp_array content : " + JSON.stringify(state_values));
