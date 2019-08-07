@@ -14,7 +14,7 @@
 [![NPM](https://nodei.co/npm/iobroker.multicast.png?downloads=true)](https://nodei.co/npm/iobroker.multicast/)
 
 **Tests:** Linux/Mac: [![Travis-CI](http://img.shields.io/travis/iobroker-community-adapters/ioBroker.multicast/master.svg)](https://travis-ci.org/iobroker-community-adapters/ioBroker.multicast)
-Windows: [![AppVeyor](https://ci.appveyor.com/api/projects/status/github/iobroker-community-adapters/ioBroker.multicast?branch=master&svg=true)](https://ci.appveyor.com/project/iobroker-community-adapters/ioBroker-multicast/)
+Windows: [![AppVeyor](https://ci.appveyor.com/api/projects/status/github/iobroker-community-adapters/ioBroker.multicast?branch=master&svg=true)](https://ci.appveyor.com/project/iobroker-community-adapters/ioBroker-multicast/) [![Greenkeeper badge](https://badges.greenkeeper.io/iobroker-community-adapters/ioBroker.multicast.svg)](https://greenkeeper.io/)
 
 # Multicast-APi adapter for ioBroker
   
