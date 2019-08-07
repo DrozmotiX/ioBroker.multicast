@@ -1,33 +1,9 @@
 {
 	"common": {
 		"name": "multicast",
-		"version": "0.0.79",
+		"version": "0.1.0",
 		"news": {
-			"0.0.7": {
-				"en": "Recovery functionality implemented",
-				"de": "Wiederherstellungsfunktion implementiert",
-				"ru": "Реализована функция восстановления",
-				"pt": "Funcionalidade de recuperação implementada",
-				"nl": "Herstelfunctionaliteit geïmplementeerd",
-				"fr": "Fonctionnalité de récupération implémentée",
-				"it": "Funzionalità di recupero implementata",
-				"es": "Funcionalidad de recuperación implementada.",
-				"pl": "Zaimplementowano funkcję odzyskiwania",
-				"zh-cn": "实施恢复功能"
-			},
-			"0.0.6": {
-				"en": "Beta release candidate",
-				"de": "Beta-Release-Kandidat",
-				"ru": "Бета-версия кандидата",
-				"pt": "Candidato a lançamento beta",
-				"nl": "Bèta-vrijgifte kandidaat",
-				"fr": "Version bêta candidate",
-				"it": "Candidato alla versione beta",
-				"es": "Beta candidato candidato",
-				"pl": "Kandydat do wersji beta",
-				"zh-cn": "Beta版候选版"
-			},
-			"0.0.1": {
+			"0.1.0": {
 				"en": "initial release",
 				"de": "Erstveröffentlichung",
 				"ru": "Начальная версия",
@@ -78,8 +54,8 @@
 		"main": "main.js",
 		"icon": "multicast.png",
 		"enabled": true,
-		"extIcon": "https://raw.githubusercontent.com/DutchmanNL/ioBroker.multicast/master/admin/multicast.png",
-		"readme": "https://github.com/DutchmanNL/ioBroker.multicast/blob/master/README.md",
+		"extIcon": "https://raw.githubusercontent.com/iobroker-community-adapters/ioBroker.multicast/master/admin/multicast.png",
+		"readme": "https://github.com/iobroker-community-adapters/ioBroker.multicast/blob/master/README.md",
 		"loglevel": "info",
 		"mode": "daemon",
 		"type": "network",
