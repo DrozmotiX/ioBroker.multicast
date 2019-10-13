@@ -1,8 +1,20 @@
 {
 	"common": {
 		"name": "multicast",
-		"version": "0.1.0",
+		"version": "0.1.1",
 		"news": {
+			"0.1.1": {
+				"en": "Dependency update",
+				"de": "Abhängigkeits-Update",
+				"ru": "Обновление зависимостей",
+				"pt": "Atualização de dependência",
+				"nl": "Afhankelijkheid update",
+				"fr": "Dépendance mise à jour",
+				"it": "Aggiornamento delle dipendenze",
+				"es": "Actualización de dependencia",
+				"pl": "Aktualizacja zależności",
+				"zh-cn": "依赖关系更新"
+			},
 			"0.1.0": {
 				"en": "initial release",
 				"de": "Erstveröffentlichung",
