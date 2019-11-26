@@ -1,7 +1,7 @@
 {
 	"common": {
 		"name": "multicast",
-		"version": "0.1.1",
+		"version": "0.1.3",
 		"news": {
 			"0.1.1": {
 				"en": "Dependency update",
@@ -91,7 +91,9 @@
 		"receive_3": 255,
 		"receive_4": 151,
 		"receive_port": 9501,
-		"Time_Sync" : 10
+		"Time_Sync": 10,
+		"retrytime": 500,
+		"retrymaxcount": 5
 	},
 	"objects": [],
 	"instanceObjects": []
