@@ -77,14 +77,14 @@ class Multicast extends utils.Adapter {
 			try {
 				//@ts-ignore message is available from function
 				const received_data = JSON.parse(message);	// Versuch den String in ein JSON zu verwandeln
-				const statename = received_data.i['Devicename'];
-				// const statename = received_data.i['Type'] + '_' + received_data.i['MAC_Adress'];
+				const device = received_data.i['Devicename'];
+
 				// read array if message is related to initialisation or state update
 				if (received_data.Type == 'Object') {
 					// initialization
 					this.log.debug('Data from device ' + JSON.stringify(received_data));
-					this.log.info('Data for device  ' + statename + ' received, initializing device');
-					this.DoInitialize(received_data, statename);
+					this.log.info('Data for device  ' + device + ' received, initializing device');
+					this.DoInitialize(received_data, device);
 				
 				} else if (received_data.Type == 'State') {
 					// state update
@@ -103,7 +103,11 @@ class Multicast extends utils.Adapter {
 				} else if (received_data.Type == 'Heartbeat'){
 					// state update
 					this.DoHeartbeat(received_data);
+				} else if (received_data.Type == 'Info'){
+					// state update
+					this.DoInfoStates(received_data, device, false);
 				}
+
 
 			} catch (error) {
 				//To-Do : ensure propper error logging for wrong firmware versions
@@ -194,9 +198,111 @@ class Multicast extends utils.Adapter {
 		}
 	}
 
+	// To-Do
 	async DoStateTransmit(message){
 
+	}
 
+	async DoInfoStates(received_data, device, create){
+
+
+		try {
+			
+			// Check if device exists, if not request complete object
+			const device_cur = await this.getObjectAsync(device);
+			this.log.debug('Return of async getObject at Info channel creation: ' + JSON.stringify(device_cur));
+
+			// In case of device not found, request complete device
+			if ((device_cur === undefined || device_cur === null) && create === false) {
+				this.log.info('Unknown device received, requesting all device data');
+				this.DoGetDevice(received_data);
+			
+			} else {
+
+				// Define propper naming, if hostname is empty just call it device
+				//const naming = received_data.i['Hostname'] || 'Device';
+				const naming = received_data.i['Hostname'] || 'Device';
+				// Create Device objekt and info channel only when needed
+				if (create === true) {
+					await this.setObjectNotExistsAsync(device,{
+						type: 'device',
+						common: {
+						//	name : received_data.c['Hostname'].v
+							name : naming
+						},
+						native: {},
+					});
+
+					// Create info channel
+					await this.createChannelAsync(device,'Info');
+
+				}
+
+				// Update Device name
+				await this.extendObjectAsync(device,{
+					common: {
+						name : naming
+					},
+				});
+
+
+
+				// Read all device related information and write into object with extend objection function
+				const objects = Object.keys(received_data.i);
+				const array = {};
+				const objekt = {};
+
+				for (const i in objects){
+					// Prepare values to be extended in instance object
+					array[objects[i]] = received_data.i[objects[i]];
+					this.log.debug('Contain of array for info in device loop : ' + JSON.stringify(array));
+
+					// Info channel is always read only, set hardcoded
+					const writable = false;
+
+					this.log.debug('"' + objects[i] + '" : "' + received_data.i[objects[i]] + '"');
+
+					// Check if state must contain min and max value
+					const min = await this.DoDefineMin(received_data.i[objects[i]]);
+					const max = await this.DoDefineMax(received_data.i[objects[i]]);
+
+					// tdoStateCreate(device, name, type,role, unit, write)
+					if (create === true) {await this.DoStateCreate(device + '.Info.' + objects[i], objects[i] , 'number', received_data.i[objects[i]].r,'', writable, min, max);}
+					
+					// Verify if value contains an object, if yes set expire time otherwise just set value
+					if (typeof received_data.i[objects[i]] === 'object'){
+						await this.setStateAsync(device + '.Info.' + objects[i], { val: received_data.i[objects[i]].val,ack: true, expire: received_data.i[objects[i]].expire});
+					} else {
+						await this.setStateAsync(device + '.Info.' + objects[i], { val: received_data.i[objects[i]],ack: true});
+					}
+
+					objekt.common = array;
+			
+				}
+
+				this.extendObject(device, objekt, (err) => {
+					if (err !== null){this.log.error('Changing alias name failed with : ' + err);}
+				});
+
+				// Send confirmation message
+
+				// Add TimeStamp to common object in info channel
+				if (create === false) {
+					objekt.common['ts'] = await this.DoGetcurrentTime;
+					const confirm = {
+						i : objekt.common,
+						Type : 'Info-OK'				
+					};
+					// message here !
+					this.log.info('Device ' + device + ' successfully initiated');
+					this.DoTransmit(JSON.stringify(confirm));
+				}
+
+			}
+
+		} catch (error) {
+			this.log.error(error);
+		}
 
 	}
 
@@ -215,7 +321,7 @@ class Multicast extends utils.Adapter {
 				this.onStateChange(id,state);
 
 			// When counter is < 5 add + 1 to counter
-			} else if (count_retry[id] < 5 ){
+			} else if (count_retry[id] < retrymaxcount ){
 				count_retry[id] = count_retry[id] + 1;
 				this.log.warn('State change for device : ' + id + ' not aknowledged, resending information');
 				this.onStateChange(id,state);
@@ -235,29 +341,9 @@ class Multicast extends utils.Adapter {
 		}
 	}
 
-	async DoInitialize(received_data, statename){
+	async DoInitialize(received_data, device){
 
-		// Define propper name of device
-		const naming = received_data.ss['Config.System.Hostname'].v || 'Device';
-
-		// Create Device objekt
-		await this.setObjectNotExistsAsync(statename,{
-			type: 'device',
-			common: {
-			//	name : received_data.c['Hostname'].v
-				name : naming
-			},
-			native: {},
-		});
-
-		// Update name if change and object already exist
-		await this.extendObjectAsync(statename,{
-			common: {
-				name : naming
-			},
-		});
-
-		// Create connection object
+		// Create connection object and set connection to true
 		await this.setObjectNotExistsAsync(received_data.i['Devicename'] + '.Info.Connected', {
 			type: 'state',
 			common: {
@@ -270,72 +356,32 @@ class Multicast extends utils.Adapter {
 			},
 			native: {},
 		});
-		
+
 		await this.setStateAsync(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true});
 
-		// Read all device related information and write into object with extend objection function
-		const objects = Object.keys(received_data.i);
-		const array = {};
-		const objekt = {};
-
-		// Create info channel
-		await this.createChannelAsync(statename,'Info');
-		// this.createChannel(statename, 'Info');
-		for (const i in objects){
-			// Prepare values to be extended in instance object
-			array[objects[i]] = received_data.i[objects[i]];
-			this.log.debug('Contain of array for info in device loop : ' + JSON.stringify(array));
-
-			// Info channel is always read only, set hardcoded
-			const writable = false;
-
-			this.log.debug('"' + objects[i] + '" : "' + received_data.i[objects[i]] + '"');
-
-			// Check if state must contain min and max value
-			const min = await this.DoDefineMin(received_data.i[objects[i]]);
-			const max = await this.DoDefineMax(received_data.i[objects[i]]);
-
-			// tdoStateCreate(device, name, type,role, unit, write)
-			await this.DoStateCreate(statename + '.Info.' + objects[i], objects[i] , 'number', received_data.i[objects[i]].r,'', writable, min, max);
-			await this.setStateAsync(statename + '.Info.' + objects[i], { val: received_data.i[objects[i]],ack: true});
-
-			objekt.common = array;
-	
-		}
-
-		this.extendObject(statename, objekt, (err) => {
-			if (err !== null){this.log.error('Changing alias name failed with : ' + err);}
-		});
+		// Create info channels and write values in object
+		this.log.debug('Create info channges with data : ' +  JSON.stringify(received_data) + ' and device name : ' + device);
+		await this.DoInfoStates(received_data, device, true);
 		
-		try {
-			//objekt.common['name'] = received_data.c['Hostname'].v;
-			this.log.debug('Content of objekt common : ' + JSON.stringify(objekt));
-			this.log.debug('Contain of array for info in device : ' + JSON.stringify(objekt));
-
-		} 
-		catch (error) {
-			this.log.debug('No Hostname found in JSON data');
-		}
-
 		try {
 			// Read all configuration related information and write into object with extend objection function
 			// To-Do :  Implement cache for case JSON does not contain configuration data
 			const config = Object.keys(received_data.c);
 
 			// Create config channel
-			await this.createChannelAsync(statename, 'Config');
+			await this.createChannelAsync(device, 'Config');
 			for (const i in config){
 				// Config channel is always writable, set hardcoded
 				const writable = true;
 
 				// Define if state must be part of channel and create state name
-				let stateCreateName = statename + '.Config.' + config[i];
+				let stateCreateName = device + '.Config.' + config[i];
 				this.log.debug('stateCreateName before if : ' + stateCreateName);
 				if (received_data.c[config[i]].c === undefined){
 					// do nothing
 				}
 				else { 
-					stateCreateName = statename + '.Config.' + received_data.c[config[i]].c + '.' + config[i];
+					stateCreateName = device + '.Config.' + received_data.c[config[i]].c + '.' + config[i];
 				}
 				this.log.debug('stateCreateName after if : ' + stateCreateName);
 				
@@ -364,15 +410,15 @@ class Multicast extends utils.Adapter {
 				const writable = await this.DoDefineWritable(received_data.s[stateNames[i]]);
 
 				// Define if state must be part of channel and create state name
-				let stateCreateName = statename + '.' + stateNames[i];
+				let stateCreateName = device + '.' + stateNames[i];
 				this.log.debug('stateCreateName before if : ' + stateCreateName);
 				if (received_data.s[stateNames[i]].c === undefined){
 					// do nothing
 				}
 				else {
 					// Create state in info channel
-					await this.createChannelAsync(statename, received_data.s[stateNames[i]].c);
-					stateCreateName = statename + '.' + received_data.s[stateNames[i]].c + '.' + stateNames[i];
+					await this.createChannelAsync(device, received_data.s[stateNames[i]].c);
+					stateCreateName = device + '.' + received_data.s[stateNames[i]].c + '.' + stateNames[i];
 				}
 				this.log.debug('stateCreateName after if : ' + stateCreateName);
 
@@ -401,7 +447,7 @@ class Multicast extends utils.Adapter {
 			for (const i in StringifiedStateNames) {
 				const splittedDevice = i.split('.');
 				if (splittedDevice.length > 1) {
-					let channelCreateName = statename;
+					let channelCreateName = device;
 					for (let x = 0; x <= (splittedDevice.length -2); x++) {  
 						channelCreateName += '.' + splittedDevice[x];
 						await this.setObjectNotExistsAsync(channelCreateName, {
@@ -419,17 +465,17 @@ class Multicast extends utils.Adapter {
 						name : StringifiedStateNames[i].v,
 					}};
 					this.log.debug('Renaming : ' + JSON.stringify(objekt));
-					this.extendObject(statename, objekt, (err) => {
+					this.extendObject(device, objekt, (err) => {
 						if (err !== null){this.log.error('Changing alias name failed with : ' + err);}
 					});
 				}
 				const writable = await  this.DoDefineWritable(StringifiedStateNames[i]);
-				const stateCreateName = statename + '.' + i;
+				const stateCreateName = device + '.' + i;
 
 				let comm_states = 'test';
 				try {
 					comm_states =  StringifiedStateNames[i].states || null;
-					this.log.info('States content : ' + comm_states);				
+					this.log.debug('States content : ' + comm_states);				
 				} catch (error) {
 					this.log.error('Hast scheisse gebaut : ' + error);
 					
@@ -437,9 +483,15 @@ class Multicast extends utils.Adapter {
 
 
 				await this.DoStateCreate(stateCreateName, splittedDevice[splittedDevice.length - 1], StringifiedStateNames[i].t, StringifiedStateNames[i].r, StringifiedStateNames[i].u, writable, null, null , comm_states);
-				this.log.info('Value for in state creation : ' + StringifiedStateNames[i].v);
-				await this.setStateAsync(stateCreateName, StringifiedStateNames[i].v,true);
-
+				this.log.debug('Value for in state creation : ' + StringifiedStateNames[i].v);
+				
+				if (StringifiedStateNames[i].e !== undefined && StringifiedStateNames[i].e !== null ){
+					this.log.debug('State ' + stateCreateName + ' with value ' + StringifiedStateNames[i].v + ' and expire ' +  StringifiedStateNames[i].e);
+					await this.setStateAsync(stateCreateName, { val: StringifiedStateNames[i].v ,ack: true, expire: StringifiedStateNames[i].e});
+				} else {
+					this.log.debug('State ' + stateCreateName + ' with value ' + StringifiedStateNames[i].v);
+					await this.setStateAsync(stateCreateName, { val: StringifiedStateNames[i].v,ack: true});
+				}
 
 				// if state has writable flag true, subscribe on changes
 				this.Dosubscribe(stateCreateName, writable);
@@ -450,13 +502,15 @@ class Multicast extends utils.Adapter {
 		}
 
 		// Add TimeStamp to common object in info channel
+		const objekt = {};
+		objekt.common = received_data.i;
 		objekt.common['ts'] = await this.DoGetcurrentTime;
 		const confirm = {
 			i : objekt.common,
 			Type : 'synced'				
 		};
 		// message here !
-		this.log.info('Device ' + statename + ' successfully initiated');
+		this.log.info('Device ' + device + ' successfully initiated');
 		this.DoTransmit(JSON.stringify(confirm));
 
 	}
@@ -466,7 +520,7 @@ class Multicast extends utils.Adapter {
 		const stateNames = Object.keys(received_data.s);
 		// const exp_timer = await this.getStateAsync(this.namespace + '.Config.System.Interval_Measure');
 		// this.log.debug('Configured interval : ' + this.namespace + ' || ' + exp_timer);
-		
+
 		const objekt = await this.getObjectAsync(received_data.i['Devicename']);
 		this.log.debug('Return of async getObject : ' + JSON.stringify(objekt));
 
@@ -483,13 +537,23 @@ class Multicast extends utils.Adapter {
 		
 				const deviceId = statename.split('.');
 				this.log.debug('Statename to send : ' + deviceId[2]);
-				// update state
-				// this.log.debug('Value of intervall : ' + received_data.c['Interval'].v);
-				this.setState(statename, { val: received_data.s[stateNames[i]],ack: true});
+				
+				this.log.debug('Type of state : ' + typeof received_data.s[stateNames[i]]);
+
+				this.DoState_change(statename, received_data.s[stateNames[i]]);
+
+				// if (typeof received_data.s[stateNames[i]] === 'object') {
+				// 	this.log.debug('Update state with expire : ' + received_data.s[stateNames[i]].expire);
+				// 	await this.setStateAsync(statename, { val: received_data.s[stateNames[i]].val, ack: true, expire: received_data.s[stateNames[i]].expire});
+				// } else {
+				// 	this.log.debug('Update state without expire');
+				// 	this.setState(statename, { val: received_data.s[stateNames[i]],ack: true});
+				// }
+
 			}				
 			// Add TimeStamp to common object in info channel
 			objekt.common['ts'] = (new Date().getTime());
-			this.log.info('Message confirm ' + confirm );
+			this.log.debug('Message confirm ' + confirm );
 			if (confirm === true){
 				const confirm = {
 					i : objekt.common,
@@ -547,6 +611,17 @@ class Multicast extends utils.Adapter {
 			
 		}
 
+	}
+
+	DoState_change (state, value) {
+
+		if (typeof value === 'object') {
+			this.log.debug('Update state with expire : ' + value.expire);
+			this.setStateAsync(state, { val: value.val, ack: true, expire: value.expire});
+		} else {
+			this.log.debug('Update state without expire');
+			this.setState(state, { val: value,ack: true});
+		}
 	}
 
 	DoDefineMin (source) {
@@ -622,14 +697,7 @@ class Multicast extends utils.Adapter {
 		// In case of device not found, request complete device
 		if (objekt === undefined || objekt === null) {
 			this.log.info('Unknown device received, requesting all device data');
-			// Add current timestamp to object
-			received_data.i['ts'] = (new Date().getTime());
-			const sendMessage = {
-				i : received_data.i,
-				Type : 'sync'				
-			};
-			// message here !
-			this.DoTransmit(JSON.stringify(sendMessage));
+			this.DoGetDevice(received_data);
 		
 		} else {
 
@@ -648,10 +716,11 @@ class Multicast extends utils.Adapter {
 					}
 					const value = await this.getStateAsync(states[i]._id);
 					this.log.debug('Received data from getstate in restore function : ' + JSON.stringify(value));
-					if (!value) return;
-					this.log.debug('Statename to recover : ' + stateNameToSend + ' with value : ' + value.val);
-					state_values[stateNameToSend] = value.val;
 
+					if (value !== null && value !== undefined){
+						this.log.debug('Statename to recover : ' + stateNameToSend + ' with value : ' + value.val);
+						state_values[stateNameToSend] = value.val;
+					}
 					this.log.debug('tmp_array content : ' + JSON.stringify(state_values));
 				}
 			}
@@ -693,10 +762,11 @@ class Multicast extends utils.Adapter {
 		} else {
 
 			this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true});
+			this.DoStateupdate(received_data, false);
 			(function () {if (timeout_connection[received_data.i['Devicename']]) {clearTimeout(timeout_connection[received_data.i['Devicename']]); timeout_connection[received_data.i['Devicename']] = null;}})();
 			timeout_connection[received_data.i['Devicename']] = setTimeout( () => {
 				this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: false, ack: true});
-			}, 60000);
+			}, 65000);
 
 		}
 
