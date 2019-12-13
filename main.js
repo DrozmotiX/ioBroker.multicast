@@ -12,7 +12,7 @@ const utils = require('@iobroker/adapter-core');
 const dgram = require('dgram');
 
 // Here Global variables
-let receive_ip = null, receive_port = null, send_ip = null, send_port = null, multicast = null, retry_time = null, retrymaxcount = null;
+let receive_ip = null, receive_port = null, send_ip = null, send_port = null, multicast = null, retry_time = null, retrymaxcount = null, device_list = null;
 const timeout_connection = {}, timeout_state = {}, count_retry = {};
 
 class Multicast extends utils.Adapter {
@@ -42,11 +42,15 @@ class Multicast extends utils.Adapter {
 		retry_time = this.config.retrytime;
 		retrymaxcount = this.config.retrymaxcount;
 
+		// Reset all connection states to FALSE
+		this.DoResetConnState();
+
 		// Write logging of configuration values in silly mode
-		this.log.silly('IP-Adress Receiver = : ' + receive_ip);
-		this.log.silly('Port Receivers = : ' + receive_port);
-		this.log.silly('IP-Adress Transmitter = : ' + send_ip);
-		this.log.silly('Port Transmitter = : ' + send_port);
+		this.log.debug('IP-Adress Receiver = : ' + receive_ip);
+		this.log.debug('Port Receivers = : ' + receive_port);
+		this.log.debug('IP-Adress Transmitter = : ' + send_ip);
+		this.log.debug('Port Transmitter = : ' + send_port);
+		this.log.debug('Retrymax count read : ' + retrymaxcount + ' as type : ' + typeof retrymaxcount);
 
 		// Create state to send global multicast message
 		// this.doStateCreate('global_message', 'send a free multicast message', 'string', 'media.tts','', true);
@@ -89,12 +93,12 @@ class Multicast extends utils.Adapter {
 				} else if (received_data.Type == 'State') {
 					// state update
 					this.DoStateupdate(received_data, true);
-					this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true});
+					// this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true});
 
 				} else if (received_data.Type == 'StateInterval') {
 					// state update
 					this.DoStateupdate(received_data, false);
-					this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true});
+					// this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true});
 
 				} else if (received_data.Type == 'Recovery'){
 					// state update
@@ -103,6 +107,7 @@ class Multicast extends utils.Adapter {
 				} else if (received_data.Type == 'Heartbeat'){
 					// state update
 					this.DoHeartbeat(received_data);
+					
 				} else if (received_data.Type == 'Info'){
 					// state update
 					this.DoInfoStates(received_data, device, false);
@@ -110,7 +115,7 @@ class Multicast extends utils.Adapter {
 
 
 			} catch (error) {
-				//To-Do : ensure propper error logging for wrong firmware versions
+				// To-Do : ensure propper error logging for wrong firmware versions
 				this.log.error(error);
 				this.log.error('unknown message received - please read the documentation !!!! - this was received: ' + message);
 			}
@@ -168,14 +173,14 @@ class Multicast extends utils.Adapter {
 					this.DoTransmit(JSON.stringify(sendMessage));
 
 					// New send message routine (queuing)
-					this.DoStateTransmit(sendMessage);
+					// this.DoStateTransmit(sendMessage);
 
 					// Define wait time for retry
 					if (count_retry[id] === undefined || count_retry[id] === null) {
 
 						retry_time = 500;
 
-					} else if (count_retry[id] <= 5){
+					} else if (count_retry[id] <= retrymaxcount){
 
 						retry_time = 500 * count_retry[id];
 
@@ -199,7 +204,21 @@ class Multicast extends utils.Adapter {
 	}
 
 	// To-Do
-	async DoStateTransmit(message){
+	// async DoStateTransmit(message){
+
+	// }
+
+	async DoResetConnState(){
+		device_list = await this.getDevicesAsync();
+		this.log.info(JSON.stringify(device_list));
+
+		for (const i in device_list){
+			//@ts-ignore : Devicename exist in Device Object, custom attribute
+			this.log.debug(JSON.stringify(device_list[i].common.Devicename) + ' Connection state set to FALSE');
+			//@ts-ignore : Devicename exist in Device Object, custom attribute
+			this.setState(device_list[i].common.Devicename + '.Info.Connected', {val: false, ack: true, expire: 70});
+
+		}
 
 	}
 
@@ -312,7 +331,7 @@ class Multicast extends utils.Adapter {
 		if (!ack_check) return;
 
 		// Check if value is aknowledged, if not resend same message again
-		if (ack_check.ack === false && (count_retry[id] === undefined || count_retry[id] <= 5 || count_retry[id] === null) ){
+		if (ack_check.ack === false && (count_retry[id] === undefined || count_retry[id] <= retrymaxcount || count_retry[id] === null) ){
 
 			// When counter is undefined, start at 1
 			if (count_retry[id] === undefined || count_retry[id] === null){
@@ -357,7 +376,7 @@ class Multicast extends utils.Adapter {
 			native: {},
 		});
 
-		await this.setStateAsync(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true});
+		await this.setStateAsync(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true, expire: 70});
 
 		// Create info channels and write values in object
 		this.log.debug('Create info channges with data : ' +  JSON.stringify(received_data) + ' and device name : ' + device);
@@ -520,6 +539,8 @@ class Multicast extends utils.Adapter {
 		const stateNames = Object.keys(received_data.s);
 		// const exp_timer = await this.getStateAsync(this.namespace + '.Config.System.Interval_Measure');
 		// this.log.debug('Configured interval : ' + this.namespace + ' || ' + exp_timer);
+
+		if (await this.DoCheckConnection(received_data) === false){return;}
 
 		const objekt = await this.getObjectAsync(received_data.i['Devicename']);
 		this.log.debug('Return of async getObject : ' + JSON.stringify(objekt));
@@ -691,6 +712,8 @@ class Multicast extends utils.Adapter {
 
 	async DoStateRestore(received_data){
 		const device = received_data.i['Devicename'];
+		// Set connected flag
+		this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true, expire: 70});
 		const objekt = await this.getObjectAsync(device);
 		this.log.debug('Return of async getObject : ' + JSON.stringify(objekt));
 
@@ -741,17 +764,8 @@ class Multicast extends utils.Adapter {
 	async DoHeartbeat(received_data) {
 		this.log.debug('Hartbeat Message received' + JSON.stringify(received_data));
 		this.log.debug(received_data.i['Devicename']);
-
-
-		// Check if current connection state = FALSE, if yes send recovery data
-		const con_state = await this.getStateAsync(received_data.i['Devicename'] + '.Info.Connected');
-
-		if (con_state !== undefined && con_state !== null) {
-			if (con_state.val === false){
-				this.DoStateRestore(received_data);
-			}
-		}
 		
+		if (await this.DoCheckConnection(received_data) === false){return;}
 
 		const objekt = await this.getObjectAsync(received_data.i['Devicename']);
 		this.log.debug('Get Device Objekt data : ' + JSON.stringify(objekt));
@@ -761,7 +775,7 @@ class Multicast extends utils.Adapter {
 		
 		} else {
 
-			this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true});
+			this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: true, ack: true, expire: 70});
 			this.DoStateupdate(received_data, false);
 			(function () {if (timeout_connection[received_data.i['Devicename']]) {clearTimeout(timeout_connection[received_data.i['Devicename']]); timeout_connection[received_data.i['Devicename']] = null;}})();
 			timeout_connection[received_data.i['Devicename']] = setTimeout( () => {
@@ -789,6 +803,24 @@ class Multicast extends utils.Adapter {
 		// message here !
 		this.DoTransmit(JSON.stringify(sendMessage));
 
+	}
+
+	async DoCheckConnection (received_data){
+		let connection = false;
+
+		// Check if current connection state = FALSE, if yes send recovery data
+		const con_state = await this.getStateAsync(received_data.i['Devicename'] + '.Info.Connected');
+
+		if (con_state !== undefined && con_state !== null) {
+			if (con_state.val === false){
+				this.DoStateRestore(received_data);
+			} else {
+				connection = true;
+			}
+		} else {
+			this.DoGetDevice(received_data);
+		}
+		return connection;
 	}
 
 	// Send UDP message

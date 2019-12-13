@@ -1,20 +1,20 @@
 {
 	"common": {
 		"name": "multicast",
-		"version": "0.1.4",
+		"version": "0.1.5",
 		"news": {
-			"0.1.1": {
-				"en": "Dependency update",
-				"de": "Abhängigkeits-Update",
-				"ru": "Обновление зависимостей",
-				"pt": "Atualização de dependência",
-				"nl": "Afhankelijkheid update",
-				"fr": "Dépendance mise à jour",
-				"it": "Aggiornamento delle dipendenze",
-				"es": "Actualización de dependencia",
-				"pl": "Aktualizacja zależności",
-				"zh-cn": "依赖关系更新"
-			},
+			"0.1.5": {
+				"en": "Stable-Release candidate",
+				"de": "Stable-Release-Kandidat",
+				"ru": "Кандидат стабильного выпуска",
+				"pt": "Candidato de liberação estável",
+				"nl": "Kandidaat voor stabiele vrijgave",
+				"fr": "Candidat à libération stable",
+				"it": "Candidato a rilascio stabile",
+				"es": "Candidato de liberación estable",
+				"pl": "Kandydat do wydania stabilnego",
+				"zh-cn": "稳定发行候选人"
+			  },
 			"0.1.0": {
 				"en": "initial release",
 				"de": "Erstveröffentlichung",
