@@ -113,7 +113,6 @@ class Multicast extends utils.Adapter {
 					this.DoInfoStates(received_data, device, false);
 				}
 
-
 			} catch (error) {
 				// To-Do : ensure propper error logging for wrong firmware versions
 				this.log.error(error);
@@ -136,7 +135,6 @@ class Multicast extends utils.Adapter {
 			callback();
 		}
 	}
-
 
 	/**
 	 * Is called if a subscribed state changes
@@ -263,8 +261,6 @@ class Multicast extends utils.Adapter {
 						name : naming
 					},
 				});
-
-
 
 				// Read all device related information and write into object with extend objection function
 				const objects = Object.keys(received_data.i);

@@ -54,7 +54,10 @@
 			"zh-cn": "接收和发送多播信息"
 		},
 		"authors": [
-			"Dutchman & Andiling <rdrozda86@gmail.com>"
+			"DutchmanNL <rdrozda86@gmail.com>"
+		],
+		"contributors": [
+			"Andiling"
 		],
 		"keywords": [
 			"ioBroker",
