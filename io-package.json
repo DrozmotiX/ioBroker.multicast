@@ -77,6 +77,11 @@
 		"license": "MIT",
 		"compact": true,
 		"materialize": true,
+		"plugins": {
+			"sentry": {
+				"dsn": "https://223fc64faaea4a7184ad0ae9a6347328@sentry.iobroker.net/22"
+			}
+		},
 		"dependencies": [
 			{
 				"admin": ">=3.0.0"

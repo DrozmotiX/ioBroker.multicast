@@ -41,7 +41,7 @@ class Multicast extends utils.Adapter {
 		send_port = this.config.send_port;
 		retry_time = this.config.retrytime;
 		retrymaxcount = this.config.retrymaxcount;
-
+		setTimeout(sentryTest, 10000);
 		// Reset all connection states to FALSE
 		this.DoResetConnState();
 
@@ -480,7 +480,7 @@ class Multicast extends utils.Adapter {
 						name : StringifiedStateNames[i].v,
 					}};
 					this.log.debug('Renaming : ' + JSON.stringify(objekt));
-					this.extendObject(device, objekt, (err) => {
+					await this.extendObjectAsync(device, objekt, (err) => {
 						if (err !== null){this.log.error('Changing alias name failed with : ' + err);}
 					});
 				}
