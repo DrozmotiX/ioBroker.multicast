@@ -41,7 +41,6 @@ class Multicast extends utils.Adapter {
 		send_port = this.config.send_port;
 		retry_time = this.config.retrytime;
 		retrymaxcount = this.config.retrymaxcount;
-		setTimeout(sentryTest, 10000);
 		// Reset all connection states to FALSE
 		this.DoResetConnState();
 
