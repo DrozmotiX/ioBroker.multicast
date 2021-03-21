@@ -6,7 +6,7 @@
     "name": "DutchmanNL",
     "email": "rdrozda86@gmail.com"
   },
-  "homepage": "https://github.com/iobroker-community-adapters/ioBroker.multicast",
+  "homepage": "https://github.com/DrozmotiX/ioBroker.multicast",
   "license": "MIT",
   "keywords": [
     "ioBroker",
@@ -16,7 +16,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/iobroker-community-adapters/ioBroker.multicast"
+    "url": "https://github.com/DrozmotiX/ioBroker.multicast"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^1.0.3"
@@ -52,7 +52,7 @@
     "lint:js": "eslint"
   },
   "bugs": {
-    "url": "https://github.com/iobroker-community-adapters/ioBroker.multicast/issues"
+    "url": "https://github.com/DrozmotiX/ioBroker.multicast/issues"
   },
   "readmeFilename": "README.md"
 }
