@@ -87,7 +87,7 @@ The adapter is build to send up to 5-times a retry to ensure all state changes a
     ### __WORK IN PROGRESS__
 -->
 
-### __WORK IN PROGRESS__
+### 0.1.6 (2021-03-23)
 * (DutchmanNL) Dependency updates
 
 ### 0.1.5
