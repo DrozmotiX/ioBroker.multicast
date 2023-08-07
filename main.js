@@ -20,6 +20,7 @@ class Multicast extends utils.Adapter {
 	 * @param {Partial<ioBroker.AdapterOptions>} [options={}]
 	 */
 	constructor(options) {
+		// @ts-ignore
 		super({
 			...options,
 			name: 'multicast',
@@ -74,24 +75,24 @@ class Multicast extends utils.Adapter {
 				const received_data = JSON.parse(message);	// Versuch den String in ein JSON zu verwandeln
 				const device = received_data.i['Devicename'];
 				// read array if message is related to initialisation or state update
-				if (received_data.Type == 'Object') {
+				if (received_data.Type === 'Object') {
 					// initialization
 					this.log.debug('Object-Data from device ' + JSON.stringify(received_data));
 					this.log.info('Object-Data for device  ' + device + ' received!');
 					this.DoInitialize(received_data, device);
-				} else if (received_data.Type == 'State') {
+				} else if (received_data.Type === 'State') {
 					// state update
 					this.DoStateupdate(received_data, true);
-				} else if (received_data.Type == 'StateInterval') {
+				} else if (received_data.Type === 'StateInterval') {
 					// state update without sending ack to device
 					this.DoStateupdate(received_data, false);
-				} else if (received_data.Type == 'Recovery'){
+				} else if (received_data.Type === 'Recovery'){
 					// Device Recovery
 					this.DoStateRestore(received_data);
-				} else if (received_data.Type == 'Heartbeat'){
+				} else if (received_data.Type === 'Heartbeat'){
 					// Heartbeat
 					this.DoHeartbeat(received_data);
-				} else if (received_data.Type == 'Info'){
+				} else if (received_data.Type === 'Info'){
 					// Info states update
 					this.DoInfoStates(received_data, device, false);
 				}
@@ -239,8 +240,8 @@ class Multicast extends utils.Adapter {
 					const writable = false;
 					this.log.debug('"' + objects[i] + '" : "' + received_data.i[objects[i]] + '"');
 					// Check if state contains min and max value
-					const min = await this.DoDefineMin(received_data.i[objects[i]]);
-					const max = await this.DoDefineMax(received_data.i[objects[i]]);
+					const min = this.DoDefineMin(received_data.i[objects[i]]);
+					const max = this.DoDefineMax(received_data.i[objects[i]]);
 					if (create === true) {await this.DoStateCreate(device + '.Info.' + objects[i], objects[i] , 'string', received_data.i[objects[i]].r,'', writable, min, max);}
 					// Verify if value contains an object, if yes set expire time otherwise just set value (we should check expire is in object too, not only check if is an object)
 					if (typeof received_data.i[objects[i]] === 'object'){
@@ -338,8 +339,8 @@ class Multicast extends utils.Adapter {
 				}
 				this.log.debug('stateCreateName after if : ' + stateCreateName);
 				// Check if state contains min and max values
-				const min = await this.DoDefineMin(received_data.c[config[i]]);
-				const max = await this.DoDefineMax(received_data.c[config[i]]);
+				const min = this.DoDefineMin(received_data.c[config[i]]);
+				const max = this.DoDefineMax(received_data.c[config[i]]);
 				this.log.debug('"' + config[i] + '" : "' + received_data.c[config[i]] + '"');
 				// create state and update value
 				await this.DoStateCreate(stateCreateName, config[i] , received_data.c[config[i]].t, received_data.c[config[i]].r,received_data.c[config[i]].u, writable, min, max);
@@ -403,9 +404,9 @@ class Multicast extends utils.Adapter {
 					}
 				}
 				if (splittedDevice[splittedDevice.length-1] === 'Hostname') {
-					const objekt = { 
+					const objekt = {
 						common : {
-								name : StringifiedStateNames[i].v,
+							name : StringifiedStateNames[i].v,
 						}
 					};
 					this.log.debug('Renaming : ' + JSON.stringify(objekt));
@@ -415,16 +416,16 @@ class Multicast extends utils.Adapter {
 						this.log.error('Changing Hostname failed with : ' + error);
 					}
 				}
-				const writable = await  this.DoDefineWritable(StringifiedStateNames[i]);
+				const writable = this.DoDefineWritable(StringifiedStateNames[i]);
 				const stateCreateName = device + '.' + i;
 
-				// Was soll dieser Try Catch Code bewirken?
+				// Trow error in case no states are provided in message
 				let comm_states = 'test';
 				try {
 					comm_states =  StringifiedStateNames[i].states || null;
 					this.log.debug('States content : ' + comm_states);
 				} catch (error) {
-					this.log.error('Hast scheisse gebaut : ' + error);
+					this.log.error('Nachricht enthält keine states : ' + error);
 				}
 
 				await this.DoStateCreate(stateCreateName, splittedDevice[splittedDevice.length - 1], StringifiedStateNames[i].t, StringifiedStateNames[i].r, StringifiedStateNames[i].u, writable, null, null , comm_states);
@@ -660,7 +661,7 @@ class Multicast extends utils.Adapter {
 			(function () {
 				if (timeout_connection[received_data.i['Devicename']]) {
 					clearTimeout(timeout_connection[received_data.i['Devicename']]); timeout_connection[received_data.i['Devicename']] = null;}
-				})();
+			})();
 			timeout_connection[received_data.i['Devicename']] = setTimeout( () => {
 				this.setState(received_data.i['Devicename'] + '.Info.Connected',{ val: false, ack: true});
 			}, 65000);
