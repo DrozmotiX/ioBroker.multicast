@@ -12,7 +12,7 @@ const dgram = require('dgram');
 
 // Here Global variables
 let receive_ip = null, receive_port = null, send_ip = null, send_port = null, multicast = null, retry_time = null, retrymaxcount = null, device_list = null;
-const timeout_connection = {}, timeout_state = {}, count_retry = {}, createdStates = {};
+const timeout_connection = {}, timeout_state = {}, count_retry = {}, existingDevices = {};
 
 class Multicast extends utils.Adapter {
 
@@ -134,15 +134,26 @@ class Multicast extends utils.Adapter {
 					stateNameToSend += deviceId[i];
 					if(i < (deviceId.length -1)) stateNameToSend += '.';
 				}
+
 				this.log.debug('statename: ' + stateNameToSend);
-				const objekt = await this.getObjectAsync(deviceId[2]);
-				this.log.debug('Return of async getObject : ' + JSON.stringify(objekt));
-				if (objekt !== undefined && objekt !== null) {
-					this.log.debug('AsyncObject received while StateChange: ' + JSON.stringify(objekt));
+
+				// Get common data of object
+				let object;
+				if (!existingDevices[deviceId[2]] || !existingDevices[deviceId[2]].common){
+					this.log.debug(`No common data cached for ${deviceId[2]}, loading common object`);
+					object = await this.getObjectAsync(deviceId[2]);
+				} else {
+					this.log.debug(`Common data cache for ${deviceId[2]} | ${JSON.stringify(existingDevices[deviceId[2]])}`);
+					object = existingDevices[deviceId[2]];
+				}
+
+				this.log.debug('Return of async getObject : ' + JSON.stringify(object));
+				if (object !== undefined && object !== null) {
+					this.log.debug('AsyncObject received while StateChange: ' + JSON.stringify(object));
 					// Add TimeStamp to common object in info channel
-					objekt.common['ts'] = (new Date().getTime());
+					object.common['ts'] = (new Date().getTime());
 					const sendMessage = {
-						i : objekt.common,
+						i : object.common,
 						s : {[stateNameToSend] : state.val}
 					};
 					// Send message
@@ -520,8 +531,6 @@ class Multicast extends utils.Adapter {
 			common,
 			native: {},
 		});
-
-		createdStates[device] = common;
 
 	}
 
