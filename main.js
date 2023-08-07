@@ -12,7 +12,7 @@ const dgram = require('dgram');
 
 // Here Global variables
 let receive_ip = null, receive_port = null, send_ip = null, send_port = null, multicast = null, retry_time = null, retrymaxcount = null, device_list = null;
-const timeout_connection = {}, timeout_state = {}, count_retry = {};
+const timeout_connection = {}, timeout_state = {}, count_retry = {}, createdStates = {};
 
 class Multicast extends utils.Adapter {
 
@@ -491,45 +491,38 @@ class Multicast extends utils.Adapter {
 	}
 
 	// Function to handle state creation
-	async DoStateCreate(device, name, type,role, unit, write,min, max, states_value){
-		await this.setObjectNotExistsAsync(device, {
-			type: 'state',
-			common: {
-				name: name,
-				type: type,
-				role: role,
-				read: true,
-				write: write,
-				unit: unit,
-				def: 0
-			},
-			native: {},
-		});
+	async DoStateCreate(device, name, type, role, unit, write, min, max, states_value){
+
+		const common = {
+			name: name,
+			type: type,
+			role: role,
+			read: true,
+			write: write,
+			unit: unit,
+			def: 0
+		};
 
 		if (min !== null) {
-			this.extendObjectAsync(device, {
-				common: {
-					min: min,
-				}
-			});
+			common.min = min;
 		}
 
 		if (max !== null) {
-			this.extendObjectAsync(device, {
-				common: {
-					max: max,
-				}
-			});
+			common.max = max;
 		}
 
 		if (states_value !== null) {
-
-			this.extendObjectAsync(device, {
-				common: {
-					states : states_value,
-				}
-			});
+			common.states = states_value;
 		}
+
+		await this.setObjectNotExistsAsync(device, {
+			type: 'state',
+			common,
+			native: {},
+		});
+
+		createdStates[device] = common;
+
 	}
 
 	DoState_change (state, value) {
