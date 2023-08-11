@@ -35,7 +35,7 @@ class Multicast extends utils.Adapter {
 	/**
 	 * Is called when databases are connected and adapter received configuration.
 	 */
-	onReady() {
+	async onReady() {
 		// Init your Adapter here
 		this.log.info('Starting Multicast Adapter - Version 0.2.0 from 7. August 2023');
 		receive_ip = String(this.config.receive_1 + '.' + this.config.receive_2 + '.' + this.config.receive_3 + '.' + this.config.receive_4);
