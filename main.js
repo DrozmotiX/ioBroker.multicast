@@ -88,8 +88,16 @@ class Multicast extends utils.Adapter {
 					this.log.info('Object-Data for device  ' + device + ' received!');
 					this.DoInitialize(received_data, device);
 				} else if (received_data.Type === 'State') {
-					// state update
-					this.DoStateupdate(received_data, true);
+
+					if (received_data.msgID != null) {
+						if (messagesRetryCache[received_data.msgID] != null ){
+							messagesRetryCache[received_data.msgID].ack = true;
+						}
+					} else {
+						// state update
+						this.DoStateupdate(received_data, true);
+					}
+
 				} else if (received_data.Type === 'StateInterval') {
 					// state update without sending ack to device
 					this.DoStateupdate(received_data, false);
@@ -764,6 +772,7 @@ class Multicast extends utils.Adapter {
 			}, retry_time * messagesRetryCache[msgID].count);
 		} else if (messagesRetryCache[msgID].ack === true) {
 			// No action required, message already acknowledged
+
 		} else {
 			this.log.error(`Device ${message.common.id} not response to message ${msgID}`)
 			this.setState(`${message.common.id}.Info.Connected`,{ val: false, ack: true});

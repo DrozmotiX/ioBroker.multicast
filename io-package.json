@@ -1,7 +1,7 @@
 {
     "common": {
         "name": "multicast",
-        "version": "0.1.6",
+        "version": "0.2.0-ALpha.0",
         "news": {
             "0.1.6": {
                 "en": "Dependency updates",
