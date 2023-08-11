@@ -113,6 +113,7 @@
         "receive_port": 9501,
         "Time_Sync": 10,
         "retrytime": 500,
+        "bufferTimeout" : 50,
         "retrymaxcount": 5
     },
     "objects": [],

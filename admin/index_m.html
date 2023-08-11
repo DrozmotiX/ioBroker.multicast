@@ -71,10 +71,10 @@
 		<h1 class="translate">multicast adapter settings</h1>
 
 		<!-- For example two columns with settings: -->
-		
+
 		<div class="section">
 			<h6 class="translate">Multicast transmit ip-adress</h6>
-		 </div>		
+		 </div>
 		<div class="row">
 			<div class="input-field col s1">
 				<input type="number" id="send_1" class="value" min="224" max="239"/>
@@ -98,7 +98,7 @@
 
 		<div class="section">
 			<h6 class="translate">Multicast receive ip-adress</h6>
-		 </div>		
+		 </div>
 		<div class="row">
 			<div class="input-field col s1">
 				<input type="number" id="receive_1" class="value" min="224" max="239"/>
@@ -116,12 +116,12 @@
 			</div>
 			<div class="input-field col s2">
 				<input type="number" id="receive_port" class="value" min="0" max="65565"/>
-				<label for="port" class="translate">Adapter Port</label>
+				<label for="receive_port" class="translate">Adapter Port</label>
 			</div>
 		</div>
 		<div class="section">
 			<h6 class="translate">Time Syncronisation intervall</h6>
-		 </div>		
+		 </div>
 		<div class="row">
 			<div class="input-field col s2">
 				<input type="number" id="Time_Sync" class="value" min="0" max="65565"/>
@@ -134,6 +134,10 @@
 			<div class="input-field col s2">
 				<input type="number" id="retrymaxcount" class="value" min="0" max="65565"/>
 				<label for="retrymaxcount" class="translate">Maximum retry</label>
+			</div>
+			<div class="input-field col s2">
+				<input type="number" id="bufferTimeout" class="value" min="0" max="2000"/>
+				<label for="bufferTimeout" class="translate">Buffer Timeout</label>
 			</div>
 		</div>
 

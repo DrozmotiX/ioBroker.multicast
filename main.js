@@ -6,13 +6,15 @@
 // The adapter-core module gives you access to the core ioBroker functions
 // you need to create an adapter
 const utils = require('@iobroker/adapter-core');
-
+const randomToken = require('random-token');
 // Load your modules here, e.g.:
 const dgram = require('dgram');
+// const {clearTimeout} = require('timers');
 
 // Here Global variables
 let receive_ip = null, receive_port = null, send_ip = null, send_port = null, multicast = null, retry_time = null, retrymaxcount = null, device_list = null;
-const timeout_connection = {}, timeout_state = {}, count_retry = {}, existingDevices = {};
+const mainSettings = {};
+const timeout_connection = {}, timeout_state = {}, count_retry = {}, existingDevices = {}, stateSendCache = {}, messagesRetryCache = {};
 
 class Multicast extends utils.Adapter {
 
@@ -41,7 +43,12 @@ class Multicast extends utils.Adapter {
 		send_ip = String(this.config.send_1 + '.' + this.config.send_2 + '.' + this.config.send_3 + '.' + this.config.send_4);
 		send_port = Number(this.config.send_port);
 		retrymaxcount = Number(this.config.retrymaxcount);
+
 		retry_time = Number(this.config.retrytime);
+
+		await this.loadMainSettings();
+
+
 		// Reset all connection states to FALSE
 		this.DoResetConnState();
 		// Write logging of configuration values to debug log
@@ -147,49 +154,73 @@ class Multicast extends utils.Adapter {
 					object = existingDevices[deviceId[2]];
 				}
 
-				this.log.debug('Return of async getObject : ' + JSON.stringify(object));
 				if (object !== undefined && object !== null) {
+
 					this.log.debug('AsyncObject received while StateChange: ' + JSON.stringify(object));
-					// Add TimeStamp to common object in info channel
-					object.common['ts'] = (new Date().getTime());
-					const sendMessage = {
-						i : object.common,
-						s : {[stateNameToSend] : state.val}
-					};
-					// Send message
-					this.DoTransmit(JSON.stringify(sendMessage));
-					//ToDo: ensure retry specific by message ID
-					if (count_retry[id] === undefined || count_retry[id] === null) {
-						retry_time = this.config.retrytime !== undefined ? this.config.retrytime || 500 : 500;
-						this.log.info('Retry Time is set from undefined to: ' + retry_time);
-						count_retry[id] = 1;
-					} else if (count_retry[id] <= retrymaxcount){
-						retry_time = retry_time * count_retry[id];
-						this.log.info('Retry Time is set from count retry to: ' + retry_time);
+
+					// ToDo: rebuild to handle retry logic correctly
+					if (stateSendCache[deviceId[2]] == null || stateNameToSend[deviceId[2]].s == null) {
+						stateSendCache[deviceId[2]] = {
+							i : object.common,
+							s : [{[stateNameToSend] : state.val}]
+						};
 					} else {
-						// In case of error just 500ms delay
-						retry_time = this.config.retrytime !== undefined ? this.config.retrytime || 500 : 500;
-						this.log.error('ERROR: Retry Time is set from ERROR to: ' + retry_time);
+						stateSendCache[deviceId[2]].s.push({stateNameToSend : state.val});
 					}
-					// Start timer with retry_time to check if state is aknowledge, if not send again
-					// Clear running timer if exist
-					( () => {
-						if (timeout_state[deviceId[2]]) {
-							clearTimeout(timeout_state[deviceId[2]]);
-							timeout_state[deviceId[2]] = null;
-						}
-					})
-					();
-					timeout_state[deviceId[2]] = setTimeout( () => {
-						this.DoStateRetry(id,state,deviceId[2]);
-						this.log.info('State retry starts in ' + retry_time + ' ms if not ACK');
-					}, retry_time);
+
+					// Buffer messages before sending to combine mu
+					if (stateSendCache[deviceId[2]].timer) {clearTimeout(stateSendCache[deviceId[2]].timer); stateSendCache[deviceId[2]].timer =null;}
+					stateSendCache[deviceId[2]].timer = setTimeout(()=> {
+						// Send message
+						this.DoTransmit(JSON.stringify(stateSendCache[deviceId[2]]));
+						stateSendCache[deviceId[2]] = {};
+					}, mainSettings.bufferTimeout);
+
+					//ToDo: ensure retry specific by message ID
+					// if (count_retry[id] === undefined || count_retry[id] === null) {
+					// 	retry_time = this.config.retrytime !== undefined ? this.config.retrytime || 500 : 500;
+					// 	this.log.info('Retry Time is set from undefined to: ' + retry_time);
+					// 	count_retry[id] = 1;
+					// } else if (count_retry[id] <= retrymaxcount){
+					// 	retry_time = retry_time * count_retry[id];
+					// 	this.log.info('Retry Time is set from count retry to: ' + retry_time);
+					// } else {
+					// 	// In case of error just 500ms delay
+					// 	retry_time = this.config.retrytime !== undefined ? this.config.retrytime || 500 : 500;
+					// 	this.log.error('ERROR: Retry Time is set from ERROR to: ' + retry_time);
+					// }
+					// // Start timer with retry_time to check if state is acknowledge, if not send again
+					// // Clear running timer if exist
+					// ( () => {
+					// 	if (timeout_state[deviceId[2]]) {
+					// 		clearTimeout(timeout_state[deviceId[2]]);
+					// 		timeout_state[deviceId[2]] = null;
+					// 	}
+					// })
+					// ();
+					// timeout_state[deviceId[2]] = setTimeout( () => {
+					// 	this.DoStateRetry(id,state,deviceId[2]);
+					// 	this.log.info('State retry starts in ' + retry_time + ' ms if not ACK');
+					// }, retry_time);
 				}
 			}
 		} else {
 			// The state was deleted
 			this.log.debug(`state ${id} deleted`);
 		}
+	}
+
+	async loadMainSettings(){
+
+		if (this.config.bufferTimeout != null){
+			mainSettings.bufferTimeout = this.config.bufferTimeout;
+		} else {
+			// in case of error default 50ms buffer cache
+			mainSettings.bufferTimeout = 50;
+		}
+		// Load all settings from adapter configuration into memory
+
+
 	}
 
 	// To-Do
@@ -282,34 +313,34 @@ class Multicast extends utils.Adapter {
 		}
 	}
 
-	async DoStateRetry(id, state, device){
-		// Get data from state and verify ACK value
-		const ack_check = await this.getStateAsync(id);
-		if (!ack_check) return;
-		// Check if value is acknowledged, if not resend same message again
-		if (ack_check.ack === false && (count_retry[id] === undefined || count_retry[id] <= retrymaxcount || count_retry[id] === null) ){
-			// When counter is undefined, start at 1
-			if (count_retry[id] === undefined || count_retry[id] === null){
-				count_retry[id] = 1;
-				this.log.warn('State change for device : ' + id + ' not aknowledged, resending information in count retry undefined');
-				this.onStateChange(id,state);
-			} else if (count_retry[id] < retrymaxcount ){
-				count_retry[id] = count_retry[id] + 1;
-				this.log.warn('State change for device : ' + id + ' not aknowledged, resending information attempt : ' + count_retry[id]);
-				this.onStateChange(id,state);
-			// Stop resending message when maximum counter is reached and set connection state to false
-			} else if (count_retry[id] === retrymaxcount){
-				this.log.error('Maximum retry count reached, device : ' + device + ' not connected !');
-				this.setState(this.namespace + '.' + device + '.Info.Connected',{ val: false, ack: true});
-				count_retry[id] = 0;
-			}
-		// Reset counter to 0 for next run
-		} else if (ack_check.ack === true) {
-			// Stop retrying and switch connection state of device to disabled
-			this.log.info('State change of device : ' + id + ' aknowledged');
-			count_retry[id] = null;
-		}
-	}
+	// async DoStateRetry(id, state, device){
+	// 	// Get data from state and verify ACK value
+	// 	const ack_check = await this.getStateAsync(id);
+	// 	if (!ack_check) return;
+	// 	// Check if value is acknowledged, if not resend same message again
+	// 	if (ack_check.ack === false && (count_retry[id] === undefined || count_retry[id] <= retrymaxcount || count_retry[id] === null) ){
+	// 		// When counter is undefined, start at 1
+	// 		if (count_retry[id] === undefined || count_retry[id] === null){
+	// 			count_retry[id] = 1;
+	// 			this.log.warn('State change for device : ' + id + ' not aknowledged, resending information in count retry undefined');
+	// 			// this.onStateChange(id,state);
+	// 		} else if (count_retry[id] < retrymaxcount ){
+	// 			count_retry[id] = count_retry[id] + 1;
+	// 			this.log.warn('State change for device : ' + id + ' not aknowledged, resending information attempt : ' + count_retry[id]);
+	// 			// this.onStateChange(id,state);
+	// 		// Stop resending message when maximum counter is reached and set connection state to false
+	// 		} else if (count_retry[id] === retrymaxcount){
+	// 			this.log.error('Maximum retry count reached, device : ' + device + ' not connected !');
+	// 			this.setState(this.namespace + '.' + device + '.Info.Connected',{ val: false, ack: true});
+	// 			count_retry[id] = 0;
+	// 		}
+	// 	// Reset counter to 0 for next run
+	// 	} else if (ack_check.ack === true) {
+	// 		// Stop retrying and switch connection state of device to disabled
+	// 		this.log.info('State change of device : ' + id + ' aknowledged');
+	// 		count_retry[id] = null;
+	// 	}
+	// }
 
 	async DoInitialize(received_data, device){
 		// Create connection object and set connection to true
@@ -700,12 +731,43 @@ class Multicast extends utils.Adapter {
 		}
 		return connection;
 	}
-	DoTransmit(message){
-		multicast.send(message, 0, message.length, parseInt(send_port) ,send_ip, (err, bytes) => {
-			if (err) throw err;
-			this.log.debug('Multicast Message content : ' + message);
-			this.log.debug('Multicast Message to IP ' + send_ip + ' on Port '+ parseInt(send_port) + ' transmitted! Length of message was ' + message.length + ' with ' + bytes + ' bytes ');
-		});
+
+
+	DoTransmit(message, msgID){
+
+		// Add/change timestamp to message
+		message['ts'] = (new Date().getTime());
+
+		// Add unique messageID if not yet present
+		if (!msgID) {
+			msgID = randomToken(16);
+			message.msgID = msgID;
+			messagesRetryCache[msgID] = {};
+			messagesRetryCache[msgID].ack = false;
+			messagesRetryCache[msgID].count = 0;
+		}
+
+		if (messagesRetryCache[msgID].ack === false && messagesRetryCache[msgID].count < retrymaxcount + 1) {
+			messagesRetryCache[msgID].count = messagesRetryCache[msgID].count + 1;
+			// Send multicast message
+			multicast.send(message, 0, message.length, parseInt(send_port) ,send_ip, (err, bytes) => {
+				if (err) throw err;
+				this.log.debug('Multicast Message content : ' + message);
+				this.log.debug('Multicast Message to IP ' + send_ip + ' on Port '+ parseInt(send_port) + ' transmitted! Length of message was ' + message.length + ' with ' + bytes + ' bytes ');
+			});
+
+			// Buffer messages before sending to combine mu
+			if (messagesRetryCache[msgID].timer) {clearTimeout(messagesRetryCache[msgID].timer); messagesRetryCache[msgID].timer =null;}
+			messagesRetryCache[msgID].timer = setTimeout(()=> {
+				// Send message
+				this.DoTransmit(JSON.stringify(message, msgID));
+			}, retry_time * messagesRetryCache[msgID].count);
+		} else if (messagesRetryCache[msgID].ack === true) {
+			// No action required, message already acknowledged
+		} else {
+			this.log.error(`Device ${message.common.id} not response to message ${msgID}`)
+			this.setState(`${message.common.id}.Info.Connected`,{ val: false, ack: true});
+		}
 	}
 }
 //@ts-ignore .parent exists
