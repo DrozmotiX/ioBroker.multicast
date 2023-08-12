@@ -48,7 +48,6 @@ class Multicast extends utils.Adapter {
 
 		await this.loadMainSettings();
 
-
 		// Reset all connection states to FALSE
 		this.DoResetConnState();
 		// Write logging of configuration values to debug log
@@ -774,8 +773,8 @@ class Multicast extends utils.Adapter {
 			// No action required, message already acknowledged
 
 		} else {
-			this.log.error(`Device ${message.common.id} not response to message ${msgID}`)
-			this.setState(`${message.common.id}.Info.Connected`,{ val: false, ack: true});
+			this.log.error(`Device ${message.common.id} not response to message ${msgID}`);
+			this.setState(`${message.i['Devicename']}.Info.Connected`,{ val: false, ack: true});
 		}
 	}
 }
