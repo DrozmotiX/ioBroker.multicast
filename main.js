@@ -12,7 +12,7 @@ const dgram = require('dgram');
 // const {clearTimeout} = require('timers');
 
 // Here Global variables
-let receive_ip = null, receive_port = null, send_ip = null, send_port = null, multicast = null, retry_time = null, retrymaxcount = null, device_list = null;
+let receive_ip = null, receive_port = null, send_ip = null, send_port = null, multicast = null, retry_time = null, retrymaxcount = null, device_list = null, timeSyncInterval = null;
 const mainSettings = {};
 const timeout_connection = {}, timeout_state = {}, count_retry = {}, existingDevices = {}, stateSendCache = {}, messagesRetryCache = {};
 
@@ -125,6 +125,10 @@ class Multicast extends utils.Adapter {
 	onUnload(callback) {
 		try {
 			this.log.info('cleaned everything up...');
+			if (timeSyncInterval) {
+				clearInterval(timeSyncInterval);
+				timeSyncInterval = null;
+			}
 			multicast.close();
 			callback();
 		} catch (e) {
@@ -629,7 +633,7 @@ class Multicast extends utils.Adapter {
 			this.log.error('Error reading time-interval settings, using value of 1 minute');
 			interval = 60000;
 		}
-		setInterval(() => {
+		timeSyncInterval = setInterval(() => {
 			const TimeStamp = (new Date().getTime());
 			const UnixTime = {
 				i : {

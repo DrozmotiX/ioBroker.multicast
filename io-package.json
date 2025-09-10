@@ -4,16 +4,17 @@
         "version": "0.2.0-ALpha.1",
         "news": {
             "0.2.0-ALpha.1": {
-                "en": "news",
-                "de": "neues",
-                "ru": "новое",
-                "pt": "novidades",
-                "nl": "nieuws",
-                "fr": "nouvelles",
-                "it": "notizie",
-                "es": "noticias",
-                "pl": "nowości",
-                "zh-cn": "新"
+                "en": "Expire value by API implemented, rebuild retry functionality",
+                "de": "Ablaufwert per API implementiert, Wiederholungsfunktion wieder aufgebaut",
+                "ru": "Значение истечения срока действия, реализованное API, функция повторной попытки перестройки",
+                "pt": "Valor expirado por API implementado, funcionalidade de repetição de reconstrução",
+                "nl": "Vervaldatum door API geïmplementeerd, herbouw herhalingsfunctionaliteit",
+                "fr": "Valeur d'expiration par API implémentée, fonctionnalité de nouvelle tentative de reconstruction",
+                "it": "Valore di scadenza per API implementato, ricostruire la funzionalità di ripetizione",
+                "es": "Valor de vencimiento por API implementado, reconstruir la funcionalidad de reintento",
+                "pl": "Wartość wygaśnięcia przez API zaimplementowana, przebudowa funkcji ponawiania",
+                "zh-cn": "通过API实现的过期价值，重建重试功能",
+                "uk": "Значення закінчення терміну дії за допомогою API реалізовано, відновлення функціональності повторних спроб"
             },
             "0.1.6": {
                 "en": "Dependency updates",
@@ -52,7 +53,6 @@
                 "zh-cn": "首次出版"
             }
         },
-        "title": "Multicast",
         "titleLang": {
             "en": "Multicast",
             "de": "Multicast",
@@ -63,7 +63,8 @@
             "it": "Multicast",
             "es": "Multidifusión",
             "pl": "Multicast",
-            "zh-cn": "组播"
+            "zh-cn": "组播",
+            "uk": "Багатоадресне мовлення"
         },
         "desc": {
             "en": "Receive and sent multicast information",
@@ -75,7 +76,8 @@
             "it": "Ricevi e invia informazioni multicast",
             "es": "Recibir y enviar información multicast.",
             "pl": "Odbieranie i wysyłanie informacji o multiemisji",
-            "zh-cn": "接收和发送多播信息"
+            "zh-cn": "接收和发送多播信息",
+            "uk": "Отримувати та надсилати багатоадресну інформацію"
         },
         "authors": [
             "DutchmanNL <rdrozda86@gmail.com>"
@@ -84,13 +86,12 @@
             "Andiling"
         ],
         "keywords": [
-            "ioBroker",
-            "template",
-            "Smart Home",
-            "home automation"
+            "multicast",
+            "UDP",
+            "network",
+            "communication"
         ],
         "platform": "Javascript/Node.js",
-        "main": "main.js",
         "icon": "multicast.png",
         "enabled": true,
         "extIcon": "https://raw.githubusercontent.com/DrozmotiX/ioBroker.multicast/master/admin/multicast.png",
@@ -98,17 +99,30 @@
         "loglevel": "info",
         "mode": "daemon",
         "type": "network",
-        "license": "MIT",
         "compact": true,
-        "materialize": true,
+        "connectionType": "local",
+        "dataSource": "poll",
+        "tier": 2,
+        "adminUI": {
+            "config": "materialize"
+        },
+        "licenseInformation": {
+            "license": "MIT",
+            "type": "free"
+        },
         "plugins": {
             "sentry": {
                 "dsn": "https://223fc64faaea4a7184ad0ae9a6347328@sentry.iobroker.net/22"
             }
         },
+        "globalDependencies": [
+            {
+                "admin": ">=7.6.17"
+            }
+        ],
         "dependencies": [
             {
-                "admin": ">=3.0.0"
+                "js-controller": ">=6.0.11"
             }
         ]
     },
