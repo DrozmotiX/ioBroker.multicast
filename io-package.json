@@ -3,6 +3,18 @@
         "name": "multicast",
         "version": "0.2.0-ALpha.1",
         "news": {
+            "0.2.0-ALpha.1": {
+                "en": "news",
+                "de": "neues",
+                "ru": "новое",
+                "pt": "novidades",
+                "nl": "nieuws",
+                "fr": "nouvelles",
+                "it": "notizie",
+                "es": "noticias",
+                "pl": "nowości",
+                "zh-cn": "新"
+            },
             "0.1.6": {
                 "en": "Dependency updates",
                 "de": "Abhängigkeitsaktualisierungen",
@@ -113,7 +125,7 @@
         "receive_port": 9501,
         "Time_Sync": 10,
         "retrytime": 500,
-        "bufferTimeout" : 50,
+        "bufferTimeout": 50,
         "retrymaxcount": 5
     },
     "objects": [],
