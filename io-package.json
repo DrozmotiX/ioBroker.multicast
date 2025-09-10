@@ -26,7 +26,8 @@
                 "it": "Aggiornamenti delle dipendenze",
                 "es": "Actualizaciones de dependencia",
                 "pl": "Aktualizacje zależności",
-                "zh-cn": "依赖关系更新"
+                "zh-cn": "依赖关系更新",
+                "uk": "Dependency updates"
             },
             "0.1.5": {
                 "en": "Stable-Release candidate",
@@ -38,7 +39,8 @@
                 "it": "Candidato a rilascio stabile",
                 "es": "Candidato de liberación estable",
                 "pl": "Kandydat do wydania stabilnego",
-                "zh-cn": "稳定发行候选人"
+                "zh-cn": "稳定发行候选人",
+                "uk": "Stable-Release candidate"
             },
             "0.1.0": {
                 "en": "initial release",
@@ -50,7 +52,8 @@
                 "it": "Versione iniziale",
                 "es": "Versión inicial",
                 "pl": "Pierwsze wydanie",
-                "zh-cn": "首次出版"
+                "zh-cn": "首次出版",
+                "uk": "initial release"
             }
         },
         "titleLang": {
