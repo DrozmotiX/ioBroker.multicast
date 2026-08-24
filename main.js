@@ -9,7 +9,7 @@ const utils = require('@iobroker/adapter-core');
 const randomToken = require('random-token');
 // Load your modules here, e.g.:
 const dgram = require('node:dgram');
-// const {clearTimeout} = require('timers');
+// const {clearTimeout} = require('node:timers');
 
 // Here Global variables
 let receive_ip = null,
