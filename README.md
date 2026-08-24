@@ -123,6 +123,8 @@ The adapter is build to send up to 5-times a retry to ensure all state changes a
 
 * (Dutchman & Andiling) initial release
 
+[Older changelogs can be found there](CHANGELOG_OLD.md)
+
 ## License
 
 MIT License
