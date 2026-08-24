@@ -88,6 +88,9 @@ The adapter is build to send up to 5-times a retry to ensure all state changes a
 -->
 
 ### __WORK IN PROGRESS__
+* (DutchmanNL) Resolved remaining repository checker findings
+
+### 0.2.0-ALpha.1
 * (DutchmanNL) Maintenance: raise Node.js to 22, modernise CI and release tooling, update dependencies, resolve repository checker findings
 * ([Andiling](https://github.com/andiling)) Expire value by API implemented
 * (DutchmanNL) Rebuild retry functionality
