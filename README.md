@@ -88,6 +88,7 @@ The adapter is build to send up to 5-times a retry to ensure all state changes a
 -->
 
 ### __WORK IN PROGRESS__
+* (DutchmanNL) Dependencies updated to current versions
 * (DutchmanNL) Resolved remaining repository checker findings
 
 ### 0.2.0-ALpha.1
