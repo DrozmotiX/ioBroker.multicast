@@ -87,6 +87,10 @@ The adapter is build to send up to 5-times a retry to ensure all state changes a
     ### __WORK IN PROGRESS__
 -->
 
+
+### **WORK IN PROGRESS**
+- (ioBroker-Bot) Adapter requires admin >= 7.8.23 now.
+
 ### __WORK IN PROGRESS__
 * (DutchmanNL) Dependencies updated to current versions
 * (DutchmanNL) Resolved remaining repository checker findings
